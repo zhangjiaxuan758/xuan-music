@@ -143,6 +143,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                 onPointerMove={handlePointerMove}
                 onPointerUp={endDrag}
                 onPointerCancel={cancelDrag}
+                onClick={(e) => e.stopPropagation()}
                 className={`relative flex-1 h-8 flex items-center select-none touch-none ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 style={{ touchAction: 'none' }}
             >
