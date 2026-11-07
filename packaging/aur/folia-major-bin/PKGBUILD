@@ -1,0 +1,48 @@
+pkgname=xuan-music-android-bin
+pkgver=0.1.4
+pkgrel=1
+pkgdesc="Lyrics Reimagine desktop app packaged from prebuilt releases"
+arch=('x86_64')
+url="https://github.com/xuan-music-android"
+license=('AGPL')
+depends=(
+  'alsa-lib'
+  'gtk3'
+  'libxss'
+  'nss'
+)
+optdepends=(
+  'xdg-utils: desktop integration helpers'
+)
+provides=('xuan-music-android')
+conflicts=('xuan-music-android')
+source=(
+  "https://github.com/xuan-music-android/releases/download/v${pkgver}/xuan-music-android-${pkgver}-linux-x64.tar.gz"
+  'xuan-music-android.desktop'
+  'xuan-music-android.png'
+)
+sha256sums=(
+  'SKIP'
+  '9dc6f7f25e6dc214cf8798e9df4d01829e2a832899313cc346e97c8db0e4c9ec'
+  'cffe4a4fe5608706e2522de3b4cd8cc174357a9310493f107553794831312054'
+)
+
+package() {
+  local appdir
+
+  appdir="$(dirname "$(find "${srcdir}" -type f -name 'xuan-music-android' -perm -u+x | head -n1)")"
+  if [[ -z "${appdir}" ]]; then
+    echo "Could not locate packaged xuan-music-android executable in extracted archive" >&2
+    return 1
+  fi
+
+  install -dm755 "${pkgdir}/opt/xuan-music-android"
+  cp -a "${appdir}/." "${pkgdir}/opt/xuan-music-android/"
+
+  install -dm755 "${pkgdir}/usr/bin"
+  ln -sf "/opt/xuan-music-android/xuan-music-android" "${pkgdir}/usr/bin/xuan-music-android"
+
+  install -Dm644 "${srcdir}/xuan-music-android.desktop" \
+    "${pkgdir}/usr/share/applications/xuan-music-android.desktop"
+  install -Dm644 "${srcdir}/xuan-music-android.png" "${pkgdir}/usr/share/pixmaps/xuan-music-android.png"
+}

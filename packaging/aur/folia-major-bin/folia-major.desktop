@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Folia
+Comment=Lyrics Reimagine
+Exec=xuan-music-android
+Icon=xuan-music-android
+Terminal=false
+Type=Application
+Categories=AudioVideo;Player;
+StartupWMClass=Folia
