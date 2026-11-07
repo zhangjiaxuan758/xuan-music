@@ -4,6 +4,7 @@ import { Search, Loader2, Settings } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { resolveSearchSource, useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { getDeveloperRecommendedSongs } from '../services/onlineMusic/devRecommend';
+import { getXuanChartSongs, XUAN_CHARTS, type XuanChartId } from '../services/onlineMusic/charts';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import type { LocalLibraryCatalogSnapshot } from '../hooks/useLocalLibraryCatalog';
 import { useShallow } from 'zustand/react/shallow';
@@ -134,6 +135,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         showHomeTabAlbums,
         showHomeTabLocal,
         showHomeTabDevRecommend,
+        showHomeTabHotChart,
+        showHomeTabGufengChart,
+        showHomeTabCache,
     } = useSettingsUiStore(useShallow(state => ({
         isDaylight: state.isDaylight,
         showHomeTabPlaylist: state.showHomeTabPlaylist,
@@ -141,6 +145,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         showHomeTabAlbums: state.showHomeTabAlbums,
         showHomeTabLocal: state.showHomeTabLocal,
         showHomeTabDevRecommend: state.showHomeTabDevRecommend,
+        showHomeTabHotChart: state.showHomeTabHotChart,
+        showHomeTabGufengChart: state.showHomeTabGufengChart,
+        showHomeTabCache: state.showHomeTabCache,
     })));
     const {
         homeViewTab,
@@ -160,14 +167,25 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const localMusicAvailable = supportsLocalMusicImport();
 
     useEffect(() => {
-        if ((!localMusicAvailable && homeViewTab === 'local')
-            || (!showHomeTabDevRecommend && homeViewTab === 'devRecommend')) {
+        const hidden =
+            (!localMusicAvailable && homeViewTab === 'local')
+            || (!showHomeTabDevRecommend && homeViewTab === 'devRecommend')
+            || (!showHomeTabHotChart && homeViewTab === 'hotChart')
+            || (!showHomeTabGufengChart && homeViewTab === 'gufengChart')
+            || (!showHomeTabCache && homeViewTab === 'cache')
+            || homeViewTab === 'albums';
+        if (hidden) {
             setHomeViewTab('playlist');
         }
-    }, [homeViewTab, localMusicAvailable, showHomeTabDevRecommend, setHomeViewTab]);
+    }, [homeViewTab, localMusicAvailable, showHomeTabDevRecommend, showHomeTabHotChart, showHomeTabGufengChart, showHomeTabCache, setHomeViewTab]);
 
     const isDevRecommendTab = homeViewTab === 'devRecommend';
-    const isOnlineTab = homeViewTab === 'playlist' || homeViewTab === 'albums' || homeViewTab === 'radio' || isDevRecommendTab;
+    const isHotChartTab = homeViewTab === 'hotChart';
+    const isGufengChartTab = homeViewTab === 'gufengChart';
+    const isChartTab = isHotChartTab || isGufengChartTab;
+    const isCacheTab = homeViewTab === 'cache';
+    const isSongListTab = isDevRecommendTab || isChartTab;
+    const isOnlineTab = homeViewTab === 'playlist' || homeViewTab === 'radio' || isSongListTab || isCacheTab;
     const activeProviderId = onlineProviderPlatform?.activeProviderId || 'netease';
     const activeProviderSummary = onlineProviderPlatform?.activeProvider;
     const activeUser = activeProviderSummary?.user
@@ -292,12 +310,16 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const [loadingRadio, setLoadingRadio] = useState(false);
     const [devRecommendSongs, setDevRecommendSongs] = useState<SongResult[]>([]);
     const [loadingDevRecommend, setLoadingDevRecommend] = useState(false);
+    const [chartSongs, setChartSongs] = useState<Record<string, SongResult[]>>({});
+    const [loadingChart, setLoadingChart] = useState(false);
+    const [cacheSongs, setCacheSongs] = useState<SongResult[]>([]);
 
     const isLoading =
         (homeViewTab === 'playlist' && activeCollections.length === 0 && activeUser !== null) ||
         (homeViewTab === 'albums' && loadingAlbums) ||
         (homeViewTab === 'radio' && loadingRadio) ||
-        (homeViewTab === 'devRecommend' && loadingDevRecommend);
+        (homeViewTab === 'devRecommend' && loadingDevRecommend)
+        || (isChartTab && loadingChart);
 
     // Load favorite albums and recommendations
     useEffect(() => {
@@ -314,7 +336,23 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                 .then(songs => setDevRecommendSongs(songs))
                 .finally(() => setLoadingDevRecommend(false));
         }
-    }, [activeProviderId, activeUser, homeViewTab, devRecommendSongs.length, loadingDevRecommend]);
+        // 热歌榜 / 古风榜：每次进入都从网易云官方实时重新拉取。
+        if (isChartTab && !loadingChart) {
+            const chartId = homeViewTab as XuanChartId;
+            setLoadingChart(true);
+            getXuanChartSongs(chartId)
+                .then(songs => setChartSongs(prev => ({ ...prev, [chartId]: songs })))
+                .finally(() => setLoadingChart(false));
+        }
+        // 缓存：读取本地已缓存的歌曲（播放时由缓存层写入）。
+        if (isCacheTab) {
+            try {
+                const raw = localStorage.getItem('xuan_cached_media_songs');
+                const parsed = raw ? JSON.parse(raw) : [];
+                setCacheSongs(Array.isArray(parsed) ? parsed : []);
+            } catch { setCacheSongs([]); }
+        }
+    }, [activeProviderId, activeUser, homeViewTab, isChartTab, isCacheTab, devRecommendSongs.length, loadingDevRecommend, loadingChart]);
 
     useEffect(() => {
         setFavoriteAlbums([]);
@@ -394,7 +432,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     summary: description,
                 };
             });
-            setRadioItems([fmItem, dailyItem, ...recommendedItems]);
+            // 小轩音乐：电台只保留官方推荐歌单，去掉私人 FM / 每日推荐入口。
+            void fmItem; void dailyItem;
+            setRadioItems([...recommendedItems]);
         } catch (e) {
             console.error('[Grid3D] Failed to fetch radio items', e);
         } finally {
@@ -446,25 +486,36 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         }));
     }, [radioItems]);
 
-    const devRecommendCards = useMemo(() => devRecommendSongs.map((song, index) => ({
-        id: `dev_recommend_${song.id}`,
+    const activeSongList = useMemo<SongResult[]>(() => {
+        if (isDevRecommendTab) return devRecommendSongs;
+        if (isChartTab) return chartSongs[homeViewTab] || [];
+        if (isCacheTab) return cacheSongs;
+        return [];
+    }, [isDevRecommendTab, isChartTab, isCacheTab, homeViewTab, devRecommendSongs, chartSongs, cacheSongs]);
+
+    const songListLabel = isDevRecommendTab
+        ? '开发者推荐'
+        : isHotChartTab ? XUAN_CHARTS.hotChart.name
+            : isGufengChartTab ? XUAN_CHARTS.gufengChart.name : '缓存音乐';
+
+    const devRecommendCards = useMemo(() => activeSongList.map((song, index) => ({
+        id: `xuan_song_${song.id}`,
         name: song.name,
         coverUrl: getSongCoverUrl(song, activeProviderId) || '',
         description: song.artists.map(artist => artist.name).filter(Boolean).join(' / '),
-        summary: `开发者推荐 · ${index + 1}`,
+        summary: `${songListLabel} · ${index + 1}`,
         type: 'playlist' as const,
         isDevRecommendSong: true,
         raw: { song, isDevRecommendSong: true },
-    })), [devRecommendSongs, activeProviderId]);
+    })), [activeSongList, activeProviderId, songListLabel]);
 
     // Active tab list items mapping
     const currentDesktopItems = useMemo(() => {
         if (homeViewTab === 'playlist') return playlistCards;
-        if (homeViewTab === 'albums') return albumCards;
         if (homeViewTab === 'radio') return radioCards;
-        if (isDevRecommendTab) return devRecommendCards;
+        if (isSongListTab || isCacheTab) return devRecommendCards;
         return [];
-    }, [homeViewTab, isDevRecommendTab, playlistCards, albumCards, radioCards, devRecommendCards]);
+    }, [homeViewTab, isSongListTab, isCacheTab, playlistCards, radioCards, devRecommendCards]);
 
     // Delegate GridView opening to the app-level host so Grid3D remains only the home surface.
     // If Personal FM is clicked, it plays Personal FM directly instead of opening GridView.
@@ -473,7 +524,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         // 会员 / 付费 / 试听 / 无版权的提示与官方口径由播放层统一处理。
         if (card.isDevRecommendSong || card.raw?.isDevRecommendSong) {
             const song = card.raw?.song as SongResult | undefined;
-            if (song) onPlaySong(song, devRecommendSongs, false);
+            // 与搜索完全一致的播放链路：会员 / 付费 / 试听 / 无版权按网易云官方口径提示，
+            // 已登录且有会员时官方直接下发完整版。
+            if (song) onPlaySong(song, activeSongList, false);
             return;
         }
         if (card.id === 'personal_fm' || card.raw?.id === 'personal_fm') {
@@ -655,16 +708,18 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     </div>
 
                     {/* Center Tab Switcher */}
-                    <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-1">
-                        <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full scale-90 md:scale-100 origin-center`}>
+                    <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-1 min-w-0" data-xuan-tabbar>
+                        <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full origin-center max-w-full overflow-x-auto xuan-hide-scrollbar`}>
                             <div className="inline-flex items-center gap-0">
                                 {[
                                     ...(showHomeTabPlaylist ? [{ key: 'playlist', label: t('home.playlists') }] : []),
                                     ...(showHomeTabRadio ? [{ key: 'radio', label: t('home.radio') }] : []),
-                                    ...(showHomeTabAlbums ? [{ key: 'albums', label: t('home.albums') }] : []),
+                                    ...(showHomeTabHotChart ? [{ key: 'hotChart', label: '热歌榜' }] : []),
+                                    ...(showHomeTabGufengChart ? [{ key: 'gufengChart', label: '古风榜' }] : []),
+                                    ...(showHomeTabDevRecommend ? [{ key: 'devRecommend', label: '开发者推荐' }] : []),
+                                    ...(showHomeTabCache ? [{ key: 'cache', label: '缓存' }] : []),
                                     ...(showHomeTabLocal && localMusicAvailable ? [{ key: 'local', label: t('localMusic.folder') }] : []),
                                     ...(navidromeEnabled ? [{ key: 'navidrome', label: t('navidrome.title') || 'Navidrome' }] : []),
-                                    ...(showHomeTabDevRecommend ? [{ key: 'devRecommend', label: '开发者推荐' }] : []),
                                 ].map((tab) => {
                                     const isActive = homeViewTab === tab.key;
                                     return (
@@ -730,7 +785,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     <div className="flex flex-1 w-full items-center justify-center" aria-busy="true">
                         <Loader2 className="animate-spin opacity-30" size={28} />
                     </div>
-                ) : isOnlineTab && !isDevRecommendTab && activeAccountView === 'guest' ? (
+                ) : isOnlineTab && !isSongListTab && !isCacheTab && activeAccountView === 'guest' ? (
                     <OnlineProviderConnectPanel
                         providers={onlineProviderPlatform?.providers || omni.getProviderSummaries()}
                         activeProviderId={activeProviderId}
@@ -757,11 +812,15 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                         title={
                             isDevRecommendTab
                                 ? '开发者推荐'
-                                : homeViewTab === 'playlist'
-                                    ? t('home.playlists')
-                                    : homeViewTab === 'albums'
-                                        ? t('home.albums')
-                                        : t('home.radio')
+                                : isHotChartTab
+                                    ? '热歌榜'
+                                    : isGufengChartTab
+                                        ? '古风榜'
+                                        : isCacheTab
+                                            ? '缓存'
+                                            : homeViewTab === 'playlist'
+                                                ? t('home.playlists')
+                                                : t('home.radio')
                         }
                         mapButtonLabel={t('home.allAlbums')}
                         items={currentDesktopItems}
@@ -769,7 +828,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                         onFocusedIndexChange={setFocusedIndex}
                         onSelect={handleSelectCollectionCard}
                         isLoading={isLoading}
-                        emptyMessage={isDevRecommendTab ? '正在获取推荐歌曲…' : t('home.loadingLibrary')}
+                        emptyMessage={isSongListTab
+                            ? (isDevRecommendTab ? '正在获取推荐歌曲…' : '正在从网易云官方获取榜单…')
+                            : isCacheTab ? '暂无缓存音乐，播放过的歌曲会自动缓存' : t('home.loadingLibrary')}
                         theme={theme}
                         isDaylight={isDaylight}
                         isInteractive={isInteractive}

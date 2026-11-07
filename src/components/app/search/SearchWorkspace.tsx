@@ -10,6 +10,8 @@ import {
     useSearchNavigationStore,
 } from '../../../stores/useSearchNavigationStore';
 import SearchResultsList from './SearchResultsList';
+import { SearchHistoryBar } from './SearchHistoryBar';
+import { pushSearchHistory } from '../../../services/searchHistory';
 import { useCollectionNavigationStore } from '../../../stores/useCollectionNavigationStore';
 import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../../services/onlineMusic/omni';
@@ -72,7 +74,9 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
         setIsAtBottom(false);
     }, [results.length, searchQuery, searchSourceTab]);
     const activeOnlineProviderId = useOnlineProviderAccountStore(state => state.activeProviderId);
-    const sources = useMemo<SearchSource[]>(() => [activeOnlineProviderId, 'local', 'navidrome'], [activeOnlineProviderId]);
+    // 小轩音乐：搜索源只保留网易云官方，不出现其它音源 / 本地 / Navidrome 选项。
+    const sources = useMemo<SearchSource[]>(() => ['netease'], []);
+    void activeOnlineProviderId;
     const hasCollection = useCollectionNavigationStore(state => Boolean(state.snapshot?.stack.length));
     const getSourceLabel = (source: SearchSource) => {
         if (source === 'local') return t('search.sourceLocal');
@@ -117,6 +121,7 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
                                 }`}
                                 onSubmit={(event) => {
                                     event.preventDefault();
+                                    pushSearchHistory(searchQuery);
                                     onSubmitSearch();
                                 }}
                             >
@@ -145,7 +150,10 @@ const SearchWorkspace: React.FC<SearchWorkspaceProps> = ({
                             </button>
                         </div>
 
-                        <nav className="flex gap-2 overflow-x-auto pb-1">
+                        <SearchHistoryBar isDaylight={isDaylight}
+                            onPick={(query) => { setSearchQuery(query); pushSearchHistory(query); onSubmitSearch(); }} />
+
+                        <nav className="flex gap-2 overflow-x-auto pb-1 xuan-hide-scrollbar">
                             {sources.map(source => (
                                 <button
                                     type="button"

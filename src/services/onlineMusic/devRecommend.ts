@@ -11,17 +11,22 @@ export interface DevRecommendedSongMeta {
 
 export const DEV_RECOMMENDED_SONGS: DevRecommendedSongMeta[] = [
     { id: 1335942780, name: '九万字', artist: '黄诗扶' },
-    { id: 2645254064, name: '清明上河图', artist: '沉虞CHENY' },
-    { id: 449818741, name: '光年之外', artist: 'G.E.M.邓紫棋' },
-    { id: 29357087, name: '寂寞烟火', artist: '朱婧汐' },
-    { id: 346576, name: '光辉岁月', artist: 'Beyond' },
-    { id: 347230, name: '海阔天空', artist: 'Beyond' },
-    { id: 32701152, name: '灰色轨迹', artist: 'Beyond' },
-    { id: 2651462434, name: '醉千年', artist: '严文舟' },
+    { id: 486188225,  name: '刚好遇见你', artist: '李玉刚' },
+    { id: 449818741,  name: '光年之外', artist: 'G.E.M.邓紫棋' },
+    { id: 29357087,   name: '寂寞烟火', artist: '朱婧汐' },
+    { id: 346576,     name: '光辉岁月', artist: 'Beyond' },
+    { id: 347230,     name: '海阔天空', artist: 'Beyond' },
+    { id: 32701152,   name: '灰色轨迹', artist: 'Beyond' },
+    { id: 3457895837, name: '醉千年（那时车马慢一生只够爱一人）', artist: '池澜/灰蒙蒙' },
     { id: 2638631898, name: '壁上观', artist: '鞠婧祎' },
     { id: 3330620554, name: '琵琶曲', artist: '郑浩Z-Hao/冰洁' },
     { id: 2027999725, name: '苏幕遮', artist: '张晓棠' },
-    { id: 30352891, name: '牵丝戏', artist: '银临/Aki阿杰' },
+    { id: 30352891,   name: '牵丝戏', artist: '银临/Aki阿杰' },
+    { id: 1454730043, name: '赤伶', artist: '李玉刚' },
+    { id: 2617279387, name: '花雨弄', artist: '粉笔' },
+    { id: 1808078153, name: '沈园外', artist: '阿YueYue/戾格/小田音乐社' },
+    { id: 2727006409, name: '青衣', artist: '尘ah.' },
+    { id: 2727001775, name: '青衣 (DJ版)', artist: '尘ah.' },
 ];
 
 // 官方 /api/v3/song/detail 不可用时的兜底：仍能让列表可见，点击播放时按 ID 重新取链。
@@ -59,12 +64,16 @@ export const getDeveloperRecommendedSongs = async (): Promise<SongResult[]> => {
                 const normalized = neteaseApi.normalizeSongResult(raw);
                 return {
                     ...normalized,
+                    fee: Number(raw.fee ?? normalized.fee ?? 0),
+                    privilege: raw.privilege ?? normalized.privilege,
+                    resourceState: raw.resourceState ?? normalized.resourceState,
+                    noCopyrightRcmd: raw.noCopyrightRcmd ?? normalized.noCopyrightRcmd,
                     sourceRef: {
                         kind: 'online' as const,
                         providerId: 'netease' as const,
                         mediaId: String(meta.id),
                     },
-                };
+                } as SongResult;
             } catch {
                 return fallbackSong(meta);
             }

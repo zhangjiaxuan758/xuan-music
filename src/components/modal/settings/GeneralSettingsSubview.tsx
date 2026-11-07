@@ -6,6 +6,7 @@ import type { Theme } from '../../../types';
 import type { AppLanguagePreference } from '../../../i18n/config';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
+import { XuanAudioEffectSettings } from './XuanAudioEffectSettings';
 import PinnedCommandSettings from './PinnedCommandSettings';
 import { supportsLocalMusicImport } from '../../../platform/runtime';
 
@@ -32,11 +33,17 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
         showHomeTabAlbums,
         showHomeTabLocal,
         showHomeTabDevRecommend,
+        showHomeTabHotChart,
+        showHomeTabGufengChart,
+        showHomeTabCache,
         handleToggleHomeTabPlaylist,
         handleToggleHomeTabRadio,
         handleToggleHomeTabAlbums,
         handleToggleHomeTabLocal,
         handleToggleHomeTabDevRecommend,
+        handleToggleHomeTabHotChart,
+        handleToggleHomeTabGufengChart,
+        handleToggleHomeTabCache,
     } = useSettingsUiStore(useShallow(state => ({
         appLanguagePreference: state.appLanguagePreference,
         onAppLanguagePreferenceChange: state.handleSetAppLanguagePreference,
@@ -50,26 +57,32 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
         handleToggleHomeTabAlbums: state.handleToggleHomeTabAlbums,
         handleToggleHomeTabLocal: state.handleToggleHomeTabLocal,
         handleToggleHomeTabDevRecommend: state.handleToggleHomeTabDevRecommend,
+        showHomeTabHotChart: state.showHomeTabHotChart,
+        showHomeTabGufengChart: state.showHomeTabGufengChart,
+        showHomeTabCache: state.showHomeTabCache,
+        handleToggleHomeTabHotChart: state.handleToggleHomeTabHotChart,
+        handleToggleHomeTabGufengChart: state.handleToggleHomeTabGufengChart,
+        handleToggleHomeTabCache: state.handleToggleHomeTabCache,
     })));
 
+    // 语言名称一律用该语言自己的母语书写：切到英语界面时，中文仍显示「简体中文」，
+    // 而不是被翻译成 Simplified Chinese。
     const getResolvedLanguageLabel = (): string => {
         const lang = i18n.resolvedLanguage;
-        if (lang?.startsWith('zh')) {
-            return t('options.appLanguageZhCN');
-        }
-        if (lang === 'in' || lang?.startsWith('id')) {
-            return t('options.appLanguageInID') || 'Bahasa Indonesia';
-        }
-        return t('options.appLanguageEnUS') || 'English';
+        if (lang === 'zh-TW' || lang?.startsWith('zh-TW')) return '繁體中文';
+        if (lang?.startsWith('zh')) return '简体中文';
+        if (lang === 'in' || lang?.startsWith('id')) return 'Bahasa Indonesia';
+        return 'English';
     };
 
     const currentResolvedLanguage = getResolvedLanguageLabel();
 
     const languageOptions: Array<{ value: AppLanguagePreference; label: string; }> = [
         { value: 'system', label: t('options.appLanguageSystem') },
-        { value: 'zh-CN', label: t('options.appLanguageZhCN') },
-        { value: 'en', label: t('options.appLanguageEnUS') || 'English' },
-        { value: 'in', label: t('options.appLanguageInID') || 'Bahasa Indonesia' },
+        { value: 'zh-CN', label: '简体中文' },
+        { value: 'zh-TW', label: '繁體中文' },
+        { value: 'en', label: 'English' },
+        { value: 'in', label: 'Bahasa Indonesia' },
     ];
 
     const languageHint = appLanguagePreference === 'system'
@@ -148,17 +161,31 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                     <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
                         <div className="space-y-1">
                             <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {t('options.showHomeTabAlbums')}
+                                显示缓存（只控制选项显隐，不关闭缓存功能）
                             </div>
                         </div>
                         <button
-                            onClick={() => handleToggleHomeTabAlbums(!showHomeTabAlbums)}
-                            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!showHomeTabAlbums ? toggleOffBackgroundClass : ''}`}
-                            style={{ backgroundColor: showHomeTabAlbums ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                            onClick={() => handleToggleHomeTabCache(!showHomeTabCache)}
+                            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!showHomeTabCache ? toggleOffBackgroundClass : ''}`}
+                            style={{ backgroundColor: showHomeTabCache ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                         >
-                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${showHomeTabAlbums ? 'translate-x-6' : 'translate-x-0'}`} />
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${showHomeTabCache ? 'translate-x-6' : 'translate-x-0'}`} />
                         </button>
                     </div>
+
+                    {([
+                        { label: '显示热歌榜', value: showHomeTabHotChart, toggle: handleToggleHomeTabHotChart },
+                        { label: '显示古风榜', value: showHomeTabGufengChart, toggle: handleToggleHomeTabGufengChart },
+                    ] as const).map(item => (
+                        <div key={item.label} className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
+                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
+                            <button onClick={() => item.toggle(!item.value)}
+                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!item.value ? toggleOffBackgroundClass : ''}`}
+                                style={{ backgroundColor: item.value ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}>
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${item.value ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+                    ))}
 
                     {supportsLocalMusicImport() && (
                         <div className="flex items-center justify-between p-4">
@@ -193,6 +220,8 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                     </div>
                 </div>
             </section>
+
+            <XuanAudioEffectSettings isDaylight={isDaylight} theme={theme} />
 
             <PinnedCommandSettings
                 isDaylight={isDaylight}

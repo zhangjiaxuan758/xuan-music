@@ -544,7 +544,10 @@ export function usePlaybackQueueController({
                 const r = preloadedOnlineAudioResult.restriction;
                 // 优先展示官方返回的原始文案（message / typeDesc），
                 // 官方未给文案时按官方返回的 code / fee / 试听字段映射官方口径提示。
-                const text = r.officialMessage
+                const text = (typeof navigator !== 'undefined' && navigator.onLine === false)
+                    ? t('status.restrictedOffline', '无网络连接')
+                    : r.officialMessage
+                    || (r.reason === 'offline' && t('status.restrictedOffline', '无网络连接'))
                     || (r.reason === 'paid-album' && t('status.restrictedPaidAlbum'))
                     || (r.reason === 'vip' && t('status.restrictedVip'))
                     || (r.reason === 'no-copyright' && t('status.restrictedNoCopyright'))

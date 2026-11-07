@@ -231,7 +231,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                     <button
                         onClick={onClearAll}
                         disabled={isCleaning === 'all'}
-                        className={`ml-auto text-xs font-normal normal-case tracking-normal px-2 py-1 hover:bg-white/10 rounded-lg ${errorTextColor} opacity-60 hover:opacity-100 transition-all disabled:opacity-20 flex items-center gap-1`}
+                        className="ml-auto text-xs font-normal normal-case tracking-normal px-2 py-1 hover:bg-white/10 rounded-lg opacity-80 hover:opacity-100 transition-all flex items-center gap-1" 
                     >
                         {isCleaning === 'all' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                         {t('options.clearAll')}
@@ -253,7 +253,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                             <button
                                 onClick={() => onClear(item.id)}
                                 disabled={isCleaning === item.id}
-                                className={`p-2 hover:bg-white/10 rounded-lg ${errorTextColor} opacity-60 hover:opacity-100 transition-all disabled:opacity-20`}
+                                className="p-2 hover:bg-white/10 rounded-lg opacity-80 hover:opacity-100 transition-all" 
                                 title="Clear"
                             >
                                 {isCleaning === item.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}

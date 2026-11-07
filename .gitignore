@@ -29,8 +29,8 @@ dist-ssr
 dev-dist/
 example/
 release/
-packaging/aur/xuan-music-android-bin/FIRST_RELEASE.md
-packaging/aur/xuan-music-android-bin/README.md
+packaging/aur/folia-major-bin/FIRST_RELEASE.md
+packaging/aur/folia-major-bin/README.md
 .codex
 .codex-tmp
 .wrangler/tmp
@@ -54,12 +54,3 @@ commit.md
 scripts/*
 !scripts/generate-android-assets.mjs
 docs/TODO.md
-
-
-# === 小轩音乐：签名密钥与含密码的文档绝不进公开仓库 ===
-*.jks
-*.jks.bak
-*.keystore
-签名信息.txt
-android/local.properties
-android/app/src/main/assets/public/

@@ -82,7 +82,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                         event.stopPropagation();
                         resolvedOnBack();
                     }}
-                    className="absolute bottom-6 right-6 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white/90 shadow-lg transition-colors hover:bg-white/15 active:scale-95"
+                    className="absolute top-6 right-6 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white/90 shadow-lg transition-colors hover:bg-white/15 active:scale-95"
                     style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
                 >
                     <ChevronLeft size={22} />

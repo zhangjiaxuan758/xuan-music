@@ -7,7 +7,7 @@
 
 ## 桌面端说明
 
-桌面版内置前后端运行环境，适合希望即装即用的用户。最新版本请前往 [Releases 页面](https://github.com/xuan-music-android/releases)。
+桌面版内置前后端运行环境，适合希望即装即用的用户。最新版本请前往 [Releases 页面](https://github.com/chthollyphile/folia-major/releases)。
 
 ### 发布与更新通道
 
@@ -23,15 +23,15 @@ Cielo 的 `[canary]` 推送会更新滚动的 `cielo` prerelease，供 Cielo 通
 
 ### Linux 获取方式
 
-1. Arch Linux / Manjaro：通过 AUR 安装 `xuan-music-android-bin`
+1. Arch Linux / Manjaro：通过 AUR 安装 `folia-major-bin`
 
 ```bash
-yay -S xuan-music-android-bin
+yay -S folia-major-bin
 ```
 
 2. Debian / Ubuntu / Linux Mint：下载 `.deb`
 3. Fedora / RHEL / openSUSE：下载 `.rpm`
-4. 其他发行版：下载 `tar.gz`，解压后直接运行 `xuan-music-android`
+4. 其他发行版：下载 `tar.gz`，解压后直接运行 `folia-major`
 
 `tar.gz` 包中附带图标与 `.desktop` 模板，可按需手动创建桌面启动项。
 
@@ -49,7 +49,7 @@ windowrule {
   no_blur = on
   border_size = 0
   no_shadow = on
-  match:class = ^(xuan-music-android)$
+  match:class = ^(folia-major)$
   match:title = ^(Folia Remote)$
 }
 
@@ -84,7 +84,7 @@ Folia 提供了从外部与播放器进行交互的 Stage API，从而可以实�
 
 如果你希望快速上线 Web 版本，可以直接通过下方入口创建 Vercel 项目：
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/xuan-music-android)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chthollyphile/folia-major)
 
 部署完成后，请在 Vercel 项目设置中补齐环境变量。
 

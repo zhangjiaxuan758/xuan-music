@@ -8,6 +8,7 @@
 // 再由 UI 层用本地化文案展示；官方若给了 message / typeDesc 则原样优先展示。
 
 export type NeteaseRestrictionReason =
+    | 'offline'       // 无网络连接
     | 'vip'           // 会员专享
     | 'paid-album'    // 付费数字专辑
     | 'trial'         // 仅试听片段
@@ -65,7 +66,7 @@ export const describeNeteaseRestriction = (
             : undefined;
 
     const base: NeteasePlaybackRestriction = {
-        reason: 'unknown',
+        reason: (typeof navigator !== 'undefined' && navigator.onLine === false) ? 'offline' : 'unknown',
         ...(Number.isFinite(code) && code !== 0 ? { code } : {}),
         ...(Number.isFinite(fee) ? { fee } : {}),
         ...(trialSeconds ? { trialSeconds } : {}),

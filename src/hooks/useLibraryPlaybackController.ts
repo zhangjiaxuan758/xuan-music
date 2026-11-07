@@ -375,6 +375,10 @@ export function useLibraryPlaybackController({
 
     const addCurrentSongToOnlinePlaylist = useCallback(async (playlist: ProviderCollection) => {
         if (!currentSong) throw new Error('No current song');
+        if (!readProviderSessionValue('netease', 'cookie', ['netease_cookie'])) {
+            setStatusMsg({ type: 'info', text: '请先登录网易云账号后再添加到歌单' });
+            return;
+        }
         await omni.addSongToPlaylist(currentSong, playlist);
         await removeFromCache(getProviderCacheKey(playlist.providerId, `playlist_tracks_${playlist.id}`));
         await removeFromCache(getProviderCacheKey(playlist.providerId, `playlist_detail_${playlist.id}`));
@@ -1405,6 +1409,15 @@ export function useLibraryPlaybackController({
 
     const handleLike = useCallback(async () => {
         if (!currentSong) return;
+
+        // 小轩音乐：在线歌曲的点赞 / 收藏需要登录网易云账号。
+        // 搜索、播放、听歌不受此限制。
+        if (!isLocalPlaybackSong(currentSong) && !isNavidromePlaybackSong(currentSong)) {
+            if (!readProviderSessionValue('netease', 'cookie', ['netease_cookie'])) {
+                setStatusMsg({ type: 'info', text: '请先登录网易云账号后再点赞或收藏' });
+                return;
+            }
+        }
 
         if (isStagePlaybackSong(currentSong)) {
             setStatusMsg({ type: 'info', text: t('status.stageLikeUnavailable') || '' });

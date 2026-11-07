@@ -1,9 +1,9 @@
-pkgname=xuan-music-android-bin
+pkgname=folia-major-bin
 pkgver=0.1.4
 pkgrel=1
 pkgdesc="Lyrics Reimagine desktop app packaged from prebuilt releases"
 arch=('x86_64')
-url="https://github.com/xuan-music-android"
+url="https://github.com/chthollyphile/folia-major"
 license=('AGPL')
 depends=(
   'alsa-lib'
@@ -14,12 +14,12 @@ depends=(
 optdepends=(
   'xdg-utils: desktop integration helpers'
 )
-provides=('xuan-music-android')
-conflicts=('xuan-music-android')
+provides=('folia-major')
+conflicts=('folia-major')
 source=(
-  "https://github.com/xuan-music-android/releases/download/v${pkgver}/xuan-music-android-${pkgver}-linux-x64.tar.gz"
-  'xuan-music-android.desktop'
-  'xuan-music-android.png'
+  "https://github.com/chthollyphile/folia-major/releases/download/v${pkgver}/folia-major-${pkgver}-linux-x64.tar.gz"
+  'folia-major.desktop'
+  'folia-major.png'
 )
 sha256sums=(
   'SKIP'
@@ -30,19 +30,19 @@ sha256sums=(
 package() {
   local appdir
 
-  appdir="$(dirname "$(find "${srcdir}" -type f -name 'xuan-music-android' -perm -u+x | head -n1)")"
+  appdir="$(dirname "$(find "${srcdir}" -type f -name 'folia-major' -perm -u+x | head -n1)")"
   if [[ -z "${appdir}" ]]; then
-    echo "Could not locate packaged xuan-music-android executable in extracted archive" >&2
+    echo "Could not locate packaged folia-major executable in extracted archive" >&2
     return 1
   fi
 
-  install -dm755 "${pkgdir}/opt/xuan-music-android"
-  cp -a "${appdir}/." "${pkgdir}/opt/xuan-music-android/"
+  install -dm755 "${pkgdir}/opt/folia-major"
+  cp -a "${appdir}/." "${pkgdir}/opt/folia-major/"
 
   install -dm755 "${pkgdir}/usr/bin"
-  ln -sf "/opt/xuan-music-android/xuan-music-android" "${pkgdir}/usr/bin/xuan-music-android"
+  ln -sf "/opt/folia-major/folia-major" "${pkgdir}/usr/bin/folia-major"
 
-  install -Dm644 "${srcdir}/xuan-music-android.desktop" \
-    "${pkgdir}/usr/share/applications/xuan-music-android.desktop"
-  install -Dm644 "${srcdir}/xuan-music-android.png" "${pkgdir}/usr/share/pixmaps/xuan-music-android.png"
+  install -Dm644 "${srcdir}/folia-major.desktop" \
+    "${pkgdir}/usr/share/applications/folia-major.desktop"
+  install -Dm644 "${srcdir}/folia-major.png" "${pkgdir}/usr/share/pixmaps/folia-major.png"
 }

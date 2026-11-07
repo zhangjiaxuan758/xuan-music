@@ -178,10 +178,10 @@ const VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY = 'VOICE_INPUT_PAUSE_ENABLED';
 
 const DEFAULT_STAGE_API_PORT = 32107;
 const DEFAULT_OBS_BROWSER_SOURCE_PORT = 32108;
-const FOLIA_RELEASES_URL = 'https://github.com/xuan-music-android/releases';
+const FOLIA_RELEASES_URL = 'https://github.com/chthollyphile/folia-major/releases';
 const FOLIA_GITHUB_REPOSITORY = {
-  owner: 'xuan-music',
-  repo: 'xuan-music-android',
+  owner: 'chthollyphile',
+  repo: 'folia-major',
 };
 const WINDOWS_APP_USER_MODEL_ID = 'top.izuna.foliamajor';
 const REMOTE_CONTROL_WINDOW_TITLE = 'Folia Remote';

@@ -152,6 +152,7 @@ export default {
     "stageActionUnavailable": "This action is unavailable in Stage mode",
     "noPlayableSongs": "No playable songs in this list",
     "songUnavailableTag": "Unavailable",
+    "restrictedOffline": "无网络连接",
     "restrictedVip": "This song is for NetEase VIP members only",
     "restrictedPaidAlbum": "This song requires purchasing the digital album",
     "restrictedTrial": "Preview only (about {{seconds}}s). Upgrade to VIP for the full song",

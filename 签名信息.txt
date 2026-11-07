@@ -1,0 +1,112 @@
+小轩音乐 1.6.5 - 签名与构建信息
+================================
+
+应用名称：小轩音乐
+包名：com.music.xuan
+版本：1.6.5 (versionCode 10618)
+适配范围：Android 10 (API 29) ~ Android 16 (API 36)，targetSdk 36 / compileSdk 36
+屏幕方向：强制横屏（sensorLandscape）+ 沉浸式全屏（隐藏状态栏/导航栏），挖孔区域 ALWAYS 铺满
+签名方案：V1 (JAR) + V2 + V3 同时启用
+
+签名证书：xuan-music.jks (PKCS12)
+密钥别名：xuanmusic
+密钥库密码：xuanmusic2026
+密钥密码：xuanmusic2026
+证书有效期：2026-11-06 至 2056-10-29
+SHA1：C2:FD:73:60:29:46:39:0F:86:86:AE:22:FF:7D:BF:1D:90:D1:62:AE
+SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56:09:5F:E4:62:CB:6B:47:8C
+
+⚠ 该 jks 与密码仅在你本地保存，切勿提交到公开仓库或随源码分发。
+
+
+一、音源实现（本版核心）
+------------------------
+客户端直连网易云官方接口 music.163.com/eapi，不经过任何第三方中转服务：
+  - 请求加密：AES-128-ECB + MD5 摘要（eapi 公开协议格式）
+  - 登录态：扫码登录后只把 MUSIC_U / __csrf 存在设备本地 localStorage
+    （键名 online_provider:netease:cookie），不上传、不外发
+  - 无需 AppID / AppSecret / RSA 私钥 / 任何服务端
+  - 只保留网易云一个平台，酷狗 / QQ 入口已整体移除
+
+官方受限内容按网易云口径处理，与官方客户端提示一致：
+  - 数字专辑 / 付费单曲（fee=1/4）→ 提示购买
+  - VIP 专享（fee=8）→ 未登录提示登录、已登录非会员提示开通会员
+  - 无版权 / 已下架（code=-110、noCopyrightRcmd、resourceState）→ 提示无版权
+  - 地区限制（cannotListenReason）→ 提示地区限制
+  - 试听片段（freeTrialInfo）→ 只播可播片段，不伪造完整播放
+  - 离线（无网络）→ 统一提示「无网络连接」，不误报为会员问题
+
+
+二、10618 版改动清单
+--------------------
+音效与音质
+  - 新增真实可调音效（超重低音 / 清澈人声 / 现场环绕等），基于 Web Audio
+    BiquadFilter + GainNode 实现，可逐项开关与调强度，设置中独立子页
+  - 音质档位与网易云官方对齐（标准 / 较高 / 极高 / 无损），按账号权限降级
+播放
+  - 播放 / 暂停改为淡入淡出，修复暂停图标先闪一下的问题
+  - 进度条与页面点击命中区域修正，点击立即响应
+  - 播放列表耗尽后先从「用户喜欢」随机续播，再从曲库搜索续播
+  - 循环模式只保留「列表循环 / 单曲循环」，去掉「禁用」
+  - 播放页右上角返回按钮常显，可返回上一页；不与右侧调节按钮重叠
+  - 回主页隐藏底部浮动控制条，仅播放页显示
+  - 双击进入沉浸模式（原「隐藏 UI」设置与按钮已删除）
+首页
+  - 新增「热歌榜」（官方歌单 3778678）、「古风榜」（官方歌单 5059642708），官方接口实时取歌
+  - 新增「开发者推荐」固定 12 首，设置中可开关显示
+  - 原「专辑」入口改为「缓存」，默认开启边听边缓存，设置内可清理
+  - 电台移除「私人 MV」「每日推荐」
+  - tab 与搜索框不再重叠
+搜索
+  - 默认 50 首，滑到底才出现「加载更多」
+  - 整行或封面点击即播放，点作者才看歌曲信息
+  - 只显示网易云音源
+  - 封面加载失败回退为网易云图标
+  - 搜索历史本地持久化：长按删单条、按钮清空、退出后输入内容保留
+  - 未登录点赞 / 收藏 / 加歌单弹登录提示（搜索听歌不受限）
+歌词
+  - 全部在线取自网易云，移除「本地获取歌词」，「在线获取歌词」改名「最佳歌词」
+设置与文档
+  - 设置弹窗放大、加关闭按钮；子页面逐层关闭（关「遇到问题」不关整个设置）
+  - 「遇到问题」「使用说明」可滑动到底、隐藏滚动条
+  - 文档改为本项目自编版本，仓库链接统一为
+    https://github.com/zhangjiaxuan758/xuan-music
+  - 语言切换用母语显示，新增繁体中文（zh-TW）
+  - 清理缓存按钮改为正常主色，不再是浅红
+开发者推荐曲目（均为正版音源，实时从官方取）
+  - 刚好遇见你 / 赤伶 / 花雨弄 / 沈园外 / 青衣（普通版 + DJ 版）/ 醉千年 等
+  - 会员曲目走与搜索一致的官方提示；登录且为会员时播完整版
+
+
+三、二次构建步骤
+----------------
+1. 安装 Node.js 22、JDK 21、Android SDK（platform android-36 / build-tools 36.0.0）
+2. 在 android/local.properties 写入 sdk.dir=<你的 Android SDK 路径>
+3. 项目根目录：
+     npm ci
+     npm run build:capacitor
+     npx cap sync android
+4. cd android && ./gradlew assembleRelease
+5. 对齐与签名（必须三步都在）：
+     zipalign -P 16 -f 4 app-release-unsigned.apk app-release-aligned.apk
+     apksigner sign --ks xuan-music.jks --ks-key-alias xuanmusic \
+       --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+       --out 小轩音乐_v1.6.5.apk app-release-aligned.apk
+     apksigner verify --print-certs 小轩音乐_v1.6.5.apk
+6. 验证输出应为：Verified using v1 scheme: true / v2 scheme: true / v3 scheme: true
+
+
+四、源码与仓库
+--------------
+源码（占位符脱敏版）：https://github.com/zhangjiaxuan758/xuan-music
+说明：源码包中网易云 eapi 协议常量已替换为 __PLACEHOLDER_*__ 占位符，
+      签名密钥、本文件、本地环境变量、编译产物均未包含。
+      补齐占位符后可自行编译，方法见包内 README.md 与 上传说明.txt。
+
+
+五、安全提醒
+------------
+1. 任何随 APK 下发、或运行时从公网拉取的内容都不算秘密，密钥不能放客户端。
+2. 之前提供给开发过程的网易云开放平台 AppSecret / RSA 私钥，若曾外发过，
+   请到开放平台后台作废并重新生成；本项目当前版本已不使用它们。
+3. 账号 Cookie 仅存本机，卸载 App 即清除；共用设备请及时退出登录。

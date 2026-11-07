@@ -6,6 +6,7 @@ import type { MediaId } from '../../../types/onlineMusic';
 import { formatSongName } from '../../../utils/songNameFormatter';
 import { getSizedCoverUrl } from '../../../utils/coverUrl';
 import { getSongUnavailableLabel, isSongUnavailable } from '../../../services/onlineMusic/songAvailability';
+import neteaseLogo from '../../../../build/netease-logo.png';
 import { canResolveSongCatalogRef } from '../../../services/onlineMusic/catalogRefs';
 import { getProviderSongMetadata } from '../../../services/onlineMusic/songMetadata';
 
@@ -53,7 +54,8 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
     return (
         <div style={style} className="px-2 py-1.5">
             <div
-                className={`group flex h-full items-center gap-3 rounded-2xl border px-3 transition-colors ${
+                onClick={() => { if (!isUnavailable) onPlayTrack(track); }}
+                className={`group flex h-full items-center gap-3 rounded-2xl border px-3 transition-colors cursor-pointer ${
                     isDaylight
                         ? 'border-black/[0.05] bg-black/[0.035] hover:bg-black/[0.07]'
                         : 'border-white/[0.06] bg-white/[0.04] hover:bg-white/[0.08]'
@@ -67,7 +69,8 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                     aria-label={t('search.playTrack')}
                 >
                     {coverUrl ? (
-                        <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        <img src={coverUrl} alt="" className="h-full w-full object-cover" loading="lazy"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = neteaseLogo; }} />
                     ) : (
                         <span className="flex h-full w-full items-center justify-center opacity-30">
                             <Disc size={22} />
@@ -111,7 +114,7 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                                         <button
                                             type="button"
                                             disabled={!canOpenArtist}
-                                            onClick={() => onOpenArtist(track, artist.name, artist.id, artist.entityId)}
+                                            onClick={(event) => { event.stopPropagation(); onOpenArtist(track, artist.name, artist.id, artist.entityId); }}
                                             className="enabled:hover:underline disabled:cursor-default"
                                         >
                                             {artist.name}
@@ -126,7 +129,7 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                                 <button
                                     type="button"
                                     disabled={!canOpenAlbum}
-                                    onClick={() => onOpenAlbum(track, album.name, album.id, album.entityId)}
+                                    onClick={(event) => { event.stopPropagation(); onOpenAlbum(track, album.name, album.id, album.entityId); }}
                                     className="max-w-[45%] truncate text-left enabled:hover:underline disabled:cursor-default"
                                 >
                                     {album.name}
@@ -144,7 +147,7 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                     {!isUnavailable && (
                         <button
                             type="button"
-                            onClick={() => onAddTrackToQueue(track)}
+                            onClick={(event) => { event.stopPropagation(); onAddTrackToQueue(track); }}
                             className="rounded-full p-2 opacity-60 transition-all hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10 sm:opacity-0 sm:group-hover:opacity-100"
                             title={t('navidrome.addToQueue')}
                         >

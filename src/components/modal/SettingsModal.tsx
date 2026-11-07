@@ -1124,7 +1124,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <motion.div
                 {...panelMotion}
                 transition={shellTransition}
-                className={`${glassBg} border ${borderColor} p-6 md:p-8 rounded-3xl ${activeTab === 'options' ? 'w-full md:max-w-4xl md:w-[900px] h-[90vh] md:h-[85vh]' : 'w-full md:max-w-lg'} relative shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300`}
+                className={`${glassBg} border ${borderColor} p-6 md:p-8 rounded-3xl ${activeTab === 'options' ? 'w-full md:max-w-6xl md:w-[1180px] h-[96vh] md:h-[93vh]' : 'w-full md:max-w-2xl md:w-[720px] h-[92vh]'} relative shadow-2xl overflow-hidden flex flex-col max-h-[96vh] transition-all duration-300`}
                 onClick={(event) => event.stopPropagation()}
             >
                 {/* Decorative background blobs */}
@@ -1140,9 +1140,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 opacity-30 hover:opacity-100 rounded-full bg-white/5 p-1 transition-colors z-20"
+                    onClick={() => {
+                        // 层级关闭：打开了「遇到问题 / 使用说明」等子页面时，只关闭子页面，
+                        // 返回设置主页；没有子页面时才关闭整个设置弹窗。
+                        if (isAnySubviewOpen) {
+                            closeAllSubviews();
+                        } else {
+                            onClose();
+                        }
+                    }}
+                    className="absolute top-4 right-4 opacity-60 hover:opacity-100 rounded-full bg-white/10 p-2 transition-colors z-20"
                     style={{ color: 'var(--text-primary)' }}
+                    aria-label="关闭"
                 >
                     <X size={20} />
                 </button>
@@ -1262,6 +1271,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 {t('help.madeBy') || "Made by"}
                                             </button>{' '}
                                             <span className="opacity-70">小轩音乐 1.6.5 · com.music.xuan</span>
+                                            <a
+                                                href="https://github.com/zhangjiaxuan758/xuan-music"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="ml-2 underline opacity-70 hover:opacity-100"
+                                            >
+                                                源码仓库：xuan-music
+                                            </a>
                                         </p>
                                     </div>
                                     <div className="flex flex-col items-center gap-2 mt-6 mb-2 text-xs font-mono text-center">

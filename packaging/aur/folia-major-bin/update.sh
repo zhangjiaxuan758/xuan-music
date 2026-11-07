@@ -4,8 +4,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pkgbuild="${script_dir}/PKGBUILD"
 srcinfo="${script_dir}/.SRCINFO"
-desktop_file="${script_dir}/xuan-music-android.desktop"
-icon_file="${script_dir}/xuan-music-android.png"
+desktop_file="${script_dir}/folia-major.desktop"
+icon_file="${script_dir}/folia-major.png"
 
 if [[ $# -ge 1 ]]; then
   version="$1"
@@ -21,11 +21,11 @@ sed -i -E "0,/^[[:space:]]*'[0-9a-f]{64}'$/{s//  '${desktop_sha256}'/}" "${pkgbu
 sed -i -E "0,/^[[:space:]]*'[0-9a-f]{64}'$/{/^[[:space:]]*'${desktop_sha256}'$/!s//  '${icon_sha256}'/}" "${pkgbuild}"
 
 cat > "${srcinfo}" <<EOF
-pkgbase = xuan-music-android-bin
+pkgbase = folia-major-bin
 	pkgdesc = Lyrics Reimagine desktop app packaged from prebuilt releases
 	pkgver = ${version}
 	pkgrel = 1
-	url = https://github.com/xuan-music-android
+	url = https://github.com/chthollyphile/folia-major
 	arch = x86_64
 	license = AGPL
 	depends = alsa-lib
@@ -33,16 +33,16 @@ pkgbase = xuan-music-android-bin
 	depends = libxss
 	depends = nss
 	optdepends = xdg-utils: desktop integration helpers
-	provides = xuan-music-android
-	conflicts = xuan-music-android
-	source = https://github.com/xuan-music-android/releases/download/v${version}/xuan-music-android-${version}-linux-x64.tar.gz
-	source = xuan-music-android.desktop
-	source = xuan-music-android.png
+	provides = folia-major
+	conflicts = folia-major
+	source = https://github.com/chthollyphile/folia-major/releases/download/v${version}/folia-major-${version}-linux-x64.tar.gz
+	source = folia-major.desktop
+	source = folia-major.png
 	sha256sums = SKIP
 	sha256sums = ${desktop_sha256}
 	sha256sums = ${icon_sha256}
 
-pkgname = xuan-music-android-bin
+pkgname = folia-major-bin
 EOF
 
 echo "Updated AUR files for version ${version}"

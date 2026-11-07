@@ -232,10 +232,10 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         <div className="space-y-1">
                             <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                                 <Settings2 size={14} />
-                                {t('options.autoUseBestLyric')}
+                                最佳歌词
                             </div>
                             <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.autoUseBestLyricDesc')}
+                                只从网易云官方在线获取歌词，自动匹配最合适的版本（含逐字歌词）。
                             </div>
                         </div>
                         {renderToggle(autoUseBestLyric, () => onToggleAutoUseBestLyric(!autoUseBestLyric))}
@@ -243,16 +243,15 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                     <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
                         <div className="space-y-1">
                             <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {t('options.localLyricsPriority')}
+                                在线获取歌词
                             </div>
                             <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.localLyricsPriorityDesc')}
+                                所有歌词均从网易云官方 API 在线获取，不使用本地歌词。
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             {([
-                                { value: 'local', label: t('options.localLyricsPriorityLocal'), desc: t('options.localLyricsPriorityLocalDesc') },
-                                { value: 'online', label: t('options.localLyricsPriorityOnline'), desc: t('options.localLyricsPriorityOnlineDesc') },
+                                { value: 'online', label: '网易云在线歌词', desc: '始终使用网易云官方在线歌词' },
                             ] as Array<{ value: LocalLyricsPriority; label: string; desc: string }>).map((option) => {
                                 const selected = localLyricsPriority === option.value;
                                 return (

@@ -8,6 +8,7 @@ import { hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
 import { saveToCache } from '../services/db';
+import { attachXuanAudioEffects } from '../services/audioEffects';
 
 // src/hooks/usePlaybackAudioBridge.ts
 
@@ -80,7 +81,15 @@ export function usePlaybackAudioBridge({
             gainNodeRef.current = gainNode;
 
             const source = ctx.createMediaElementSource(audioRef.current);
-            source.connect(gainNode);
+            // 小轩音乐：真实生效的可调音效链（超重低音 / 清澈人声 / 现场环绕 …）。
+            // source -> 滤波链 -> gain -> analyser -> destination
+            let effectInput: AudioNode = gainNode;
+            try {
+                effectInput = attachXuanAudioEffects(ctx, gainNode);
+            } catch (error) {
+                console.warn('[XuanAudioEffect] chain unavailable, using direct gain', error);
+            }
+            source.connect(effectInput);
             gainNode.connect(analyser);
             analyser.connect(ctx.destination);
             sourceRef.current = source;
@@ -102,6 +111,13 @@ export function usePlaybackAudioBridge({
             const response = await fetch(audioSrc);
             const blob = await response.blob();
             await saveAudioBlob(getSongResourceCacheKey('audio', currentSong), blob);
+            // 记录到首页「缓存」tab（最多 100 首）。
+            try {
+                const raw = localStorage.getItem('xuan_cached_media_songs');
+                const list = raw ? JSON.parse(raw) : [];
+                const next = [currentSong, ...(Array.isArray(list) ? list : []).filter((s: any) => s?.id !== currentSong?.id)].slice(0, 100);
+                localStorage.setItem('xuan_cached_media_songs', JSON.stringify(next));
+            } catch { /* ignore */ }
             console.log('[Cache] Audio saved');
         } catch (error) {
             console.error('[Cache] Failed to download audio for cache', error);

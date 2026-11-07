@@ -257,3 +257,34 @@ html[data-runtime='capacitor-android'] [data-xuan-player-surface],
 html[data-runtime='capacitor-android'] [data-xuan-player-surface] * {
   touch-action: manipulation;
 }
+
+
+/* ==========================================================================
+   小轩音乐 10618：Android 横屏滚动条隐藏 / 所有页面可滑到底 / tab 不重叠
+   ========================================================================== */
+.xuan-hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.xuan-hide-scrollbar::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
+html[data-runtime='capacitor-android'] * { scrollbar-width: none !important; }
+html[data-runtime='capacitor-android'] *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
+/* 设置、使用说明、遇到问题等弹窗内容：保证能上下滑到底，底部留白。 */
+html[data-runtime='capacitor-android'] [class*='overflow-y-auto'] {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-bottom: 24px !important;
+}
+html[data-runtime='capacitor-android'] [class*='overflow-hidden'] { touch-action: pan-y; }
+
+/* 顶部 tab 胶囊与右侧搜索框分行显示，互不遮挡；tab 过多时横向可滚。 */
+html[data-runtime='capacitor-android'] [data-xuan-header-grid] { gap: 6px 12px !important; }
+html[data-runtime='capacitor-android'] [data-xuan-tabbar] { max-width: 100%; min-width: 0; }
+html[data-runtime='capacitor-android'] [data-xuan-tabbar] > div { max-width: 100%; }
+html[data-runtime='capacitor-android'] [data-xuan-tabbar] button { flex: 0 0 auto; }
+
+/* 播放页控件单击立即响应，消除 300ms 触屏延迟。 */
+html[data-runtime='capacitor-android'] button,
+html[data-runtime='capacitor-android'] [role='slider'],
+html[data-runtime='capacitor-android'] [data-xuan-control] { touch-action: manipulation; }

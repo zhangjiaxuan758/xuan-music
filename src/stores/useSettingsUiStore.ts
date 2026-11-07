@@ -30,7 +30,7 @@ import {
 
 export type StatusSetter = React.Dispatch<React.SetStateAction<StatusMessage | null>>;
 export const CACHE_SIZE_KEY = 'folia_cache_size';
-const ENABLE_MEDIA_CACHE_KEY = 'folia_enable_media_cache';
+const ENABLE_MEDIA_CACHE_KEY = 'xuan_enable_media_cache';
 const LAST_SEEN_GUIDE_VERSION_STORAGE_KEY = 'folia_last_seen_guide_version';
 
 export type AudioQuality = AudioQualityPreference;
@@ -1164,6 +1164,9 @@ export type SettingsUiState = {
     showHomeTabAlbums: boolean;
     showHomeTabLocal: boolean;
     showHomeTabDevRecommend: boolean;
+    showHomeTabHotChart: boolean;
+    showHomeTabGufengChart: boolean;
+    showHomeTabCache: boolean;
     pinnedCommandIds: PinnedCommandIds;
     isSubSettingsViewOpen: boolean;
     settingsModalState: SettingsModalState;
@@ -1301,6 +1304,9 @@ export type SettingsUiState = {
     handleToggleHomeTabAlbums: (show: boolean) => void;
     handleToggleHomeTabLocal: (show: boolean) => void;
     handleToggleHomeTabDevRecommend: (show: boolean) => void;
+    handleToggleHomeTabHotChart: (show: boolean) => void;
+    handleToggleHomeTabGufengChart: (show: boolean) => void;
+    handleToggleHomeTabCache: (show: boolean) => void;
     setPinnedCommandId: (slotIndex: number, commandId: string | null) => void;
 };
 
@@ -1334,7 +1340,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     hideTaskbarIcon: getStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, false),
     hideRemoteControlTaskbarIcon: getStoredBoolean(REMOTE_CONTROL_SKIP_TASKBAR_STORAGE_KEY, false),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
-    enableMediaCache: getStoredBoolean(ENABLE_MEDIA_CACHE_KEY, false),
+    enableMediaCache: getStoredBoolean(ENABLE_MEDIA_CACHE_KEY, true),
     backgroundOpacity: readStoredBackgroundOpacity(),
     subtitleOverlayOpacity: readStoredSubtitleOverlayOpacity(),
     subtitleOverlayBackground: getStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, true),
@@ -1406,6 +1412,9 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     showHomeTabAlbums: getStoredBoolean('show_home_tab_albums', true),
     showHomeTabLocal: getStoredBoolean('show_home_tab_local', true),
     showHomeTabDevRecommend: getStoredBoolean('show_home_tab_dev_recommend', true),
+    showHomeTabHotChart: getStoredBoolean('show_home_tab_hot_chart', true),
+    showHomeTabGufengChart: getStoredBoolean('show_home_tab_gufeng_chart', true),
+    showHomeTabCache: getStoredBoolean('show_home_tab_cache', true),
     pinnedCommandIds: readPinnedCommandIds(),
     isSubSettingsViewOpen: false,
     settingsModalState: {
@@ -2372,7 +2381,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ appLanguagePreference: preference });
         const getLanguageLabel = (pref: AppLanguagePreference): string => {
             switch (pref) {
-                case 'zh-CN': return i18n.t('options.appLanguageZhCN', { lng: 'zh-CN' });
+                case 'zh-CN': return '简体中文';
+                case 'zh-TW': return '繁體中文';
                 case 'in': return i18n.t('options.appLanguageInID', { lng: 'in' });
                 case 'en': return i18n.t('options.appLanguageEnUS', { lng: 'en' });
                 default: return '';
@@ -2487,11 +2497,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleToggleLoopMode: () => {
         const prev = get().loopMode;
-        const next = prev === 'off'
-            ? 'all'
-            : prev === 'all'
-                ? 'one'
-                : 'off';
+        // 小轩音乐：与网易云一致，只有「列表循环 / 单曲循环」，不提供「禁用」档。
+        const next = prev === 'one' ? 'all' : 'one';
         if (typeof window !== 'undefined') {
             localStorage.setItem('player_loop_mode', next);
         }
@@ -2534,6 +2541,18 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     handleToggleHomeTabDevRecommend: (show) => {
         set({ showHomeTabDevRecommend: show });
         if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_dev_recommend', show.toString());
+    },
+    handleToggleHomeTabHotChart: (show) => {
+        set({ showHomeTabHotChart: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_hot_chart', show.toString());
+    },
+    handleToggleHomeTabGufengChart: (show) => {
+        set({ showHomeTabGufengChart: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_gufeng_chart', show.toString());
+    },
+    handleToggleHomeTabCache: (show) => {
+        set({ showHomeTabCache: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_cache', show.toString());
     },
     setPinnedCommandId: (slotIndex, commandId) => {
         if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= 3) {

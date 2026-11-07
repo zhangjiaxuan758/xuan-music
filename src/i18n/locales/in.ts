@@ -144,6 +144,7 @@ export default {
     "stageActionUnavailable": "Aksi ini tidak tersedia di mode Stage",
     "noPlayableSongs": "Tidak ada lagu yang bisa diputar di daftar ini",
     "songUnavailableTag": "Tidak Tersedia",
+    "restrictedOffline": "无网络连接",
     "restrictedVip": "Lagu ini khusus anggota VIP NetEase",
     "restrictedPaidAlbum": "Lagu ini perlu membeli album digital",
     "restrictedTrial": "Hanya pratinjau (sekitar {{seconds}} detik). Upgrade VIP untuk lagu penuh",

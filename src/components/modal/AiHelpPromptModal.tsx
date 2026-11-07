@@ -3,14 +3,16 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BookOpen, Check, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../types';
+import { XuanHelpDoc } from './XuanHelpDoc';
+import { X as CloseIcon } from 'lucide-react';
 
 // src/components/modal/AiHelpPromptModal.tsx
 
-const FOLIA_GUIDE_URL = 'https://folia-site.cielaniska.top/guide/llm-routing';
-const FOLIA_DOCS_URL = 'https://folia-site.cielaniska.top/guide/';
-// 填入你自己的 GitHub 仓库地址即可在 AI 提示词里附带；留空则只显示应用标识。
-const XUAN_REPOSITORY_URL = '';
-const FOLIA_REPOSITORY_URL = XUAN_REPOSITORY_URL || '小轩音乐 · com.music.xuan';
+// 小轩音乐：文档与仓库全部指向用户自己的 xuan-music 仓库，不再使用上游站点。
+const FOLIA_GUIDE_URL = 'https://github.com/zhangjiaxuan758/xuan-music#使用说明';
+const FOLIA_DOCS_URL = 'https://github.com/zhangjiaxuan758/xuan-music';
+const XUAN_REPOSITORY_URL = 'https://github.com/zhangjiaxuan758/xuan-music';
+const FOLIA_REPOSITORY_URL = XUAN_REPOSITORY_URL;
 
 type AiHelpPromptModalProps = {
     isOpen: boolean;
@@ -34,12 +36,16 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
         guideUrl: FOLIA_GUIDE_URL,
         repoUrl: FOLIA_REPOSITORY_URL,
         defaultValue: [
-            'I am using 小轩音乐 and need help with a problem.',
+            '我正在使用「小轩音乐」Android 版（1.6.5 / com.music.xuan），遇到一个问题需要帮助。',
             '',
-            `小轩音乐 Guide: ${FOLIA_GUIDE_URL}`,
-            `小轩音乐 repository: ${FOLIA_REPOSITORY_URL}`,
+            `使用说明：${FOLIA_GUIDE_URL}`,
+            `源码仓库：${FOLIA_REPOSITORY_URL}`,
             '',
-            'Please read these references as context, then help me understand and solve the problem I describe next. Ask for any missing details before making assumptions, and give me steps I can try safely.'
+            '小轩音乐是横屏全屏的 Android 音乐应用，客户端直连网易云官方接口，音源只来自网易云；',
+            '登录态只保存在本机；搜索与听歌不需要登录，点赞 / 收藏 / 加歌单需要登录。',
+            '',
+            '请先阅读上面的说明与仓库 README，再结合我下面描述的具体问题给出排查步骤。',
+            '如果信息不足，请先向我确认，再给出可以安全尝试的操作步骤。'
         ].join('\n')
     }), [t]);
 
@@ -91,7 +97,16 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
 
 
 
+                        <button type="button" onClick={onClose} aria-label="关闭"
+                            className="absolute right-4 top-4 z-20 rounded-full bg-white/10 p-2 opacity-70 transition hover:opacity-100">
+                            <CloseIcon size={18} />
+                        </button>
+
                         <div className="relative z-10 space-y-5">
+                            {/* 小轩音乐自编文档：内容围绕本应用，仓库链接指向 xuan-music。 */}
+                            <div className="max-h-[38vh] overflow-y-auto xuan-hide-scrollbar rounded-xl p-1">
+                                <XuanHelpDoc isDaylight={isDaylight} />
+                            </div>
                             <div className="pr-10">
                                 <h2 className="text-xl font-semibold">{t('aiHelp.title', 'Need help?')}</h2>
                                 <p className={`mt-2 text-sm leading-6 ${textSecondary}`}>

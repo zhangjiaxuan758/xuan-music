@@ -70,7 +70,7 @@ export const resolveSearchSource = (tab: HomeViewTab | SearchSource): SearchSour
     if (tab === 'local' || tab === 'navidrome') {
         return tab;
     }
-    if (tab === 'devRecommend') return 'netease';
+    if (tab === 'devRecommend' || tab === 'hotChart' || tab === 'gufengChart' || tab === 'cache') return 'netease';
     if (tab !== 'playlist' && tab !== 'albums' && tab !== 'radio') return tab as OnlineProviderId;
     return 'netease';
 };
@@ -168,6 +168,7 @@ const executeSearch = async (
     return searchOnlineProviderSongs(sourceTab, query, limit, offset);
 };
 
+const XUAN_VALID_HOME_TABS: HomeViewTab[] = ['playlist', 'local', 'albums', 'navidrome', 'radio', 'devRecommend', 'hotChart', 'gufengChart', 'cache'];
 const getInitialHomeViewTab = (): HomeViewTab => {
     if (typeof window === 'undefined') {
         return 'playlist';
@@ -185,7 +186,7 @@ const getInitialHomeViewTab = (): HomeViewTab => {
 
 export const useSearchNavigationStore = create<SearchNavigationState>((set, get) => ({
     homeViewTab: getInitialHomeViewTab(),
-    searchQuery: '',
+    searchQuery: (() => { try { return localStorage.getItem('xuan_search_query') || ''; } catch { return ''; } })(),
     searchSourceTab: 'netease',
     searchResults: null,
     searchReturnView: 'home',
@@ -206,7 +207,10 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         }
         set({ homeViewTab: resolvedTab });
     },
-    setSearchQuery: (query) => set({ searchQuery: query }),
+    setSearchQuery: (query) => {
+        try { localStorage.setItem('xuan_search_query', query); } catch { /* ignore */ }
+        set({ searchQuery: query });
+    },
     setSearchScrollTop: (scrollTop) => set(state => {
         const cacheKey = getSearchCacheKey(state.searchQuery, state.searchSourceTab);
         const cached = state.searchCache[cacheKey];

@@ -117,7 +117,7 @@ export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' |
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
-export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio' | 'devRecommend';
+export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio' | 'devRecommend' | 'hotChart' | 'gufengChart' | 'cache';
 
 export type PlaybackContext = 'main' | 'stage';
 export type StageSource = 'stage-api' | 'now-playing' | 'playercap';

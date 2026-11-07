@@ -81,10 +81,13 @@ export function usePlaybackTransportController({
 
         // 淡入起点：先静音，play() 成功后再渐变到目标音量。
         syncOutputGain(0, 0);
-        const audio = audioRef.current as (HTMLAudioElement & { __xuanFadeTimer?: number }) | null;
-        if (audio && typeof audio.__xuanFadeTimer === 'number') {
-            window.clearTimeout(audio.__xuanFadeTimer);
-            audio.__xuanFadeTimer = undefined;
+        const audio = audioRef.current as (HTMLAudioElement & { __xuanFadeTimer?: number; __xuanPausing?: boolean }) | null;
+        if (audio) {
+            audio.__xuanPausing = false;
+            if (typeof audio.__xuanFadeTimer === 'number') {
+                window.clearTimeout(audio.__xuanFadeTimer);
+                audio.__xuanFadeTimer = undefined;
+            }
         }
         if (shouldRefreshCurrentOnlineAudioSource()) {
             const refreshed = await recoverOnlinePlaybackSource({
@@ -149,7 +152,10 @@ export function usePlaybackTransportController({
         }
 
         // 淡出：先把音量渐变到 0，约 260ms 后再真正暂停，避免「咔」的突变。
-        const audio = audioRef.current as HTMLAudioElement & { __xuanFadeTimer?: number };
+        const audio = audioRef.current as HTMLAudioElement & { __xuanFadeTimer?: number; __xuanPausing?: boolean };
+        // 标记「淡出中」：App 的 onPlay/onPlaying 会据此跳过 setPlayerState(PLAYING)，
+        // 图标一次到位，不再「暂停→闪一下播放→又回暂停」。
+        audio.__xuanPausing = true;
         syncOutputGain(0, 0.08);
         if (typeof audio.__xuanFadeTimer === 'number') {
             window.clearTimeout(audio.__xuanFadeTimer);
@@ -159,8 +165,9 @@ export function usePlaybackTransportController({
             if (!audio.paused) {
                 audio.pause();
             }
+            audio.__xuanPausing = false;
             syncOutputGain(getTargetPlaybackVolume(), 0);
-        }, 260);
+        }, 240);
         setPlayerState(PlayerState.PAUSED);
     }, [activePlaybackContext, audioRef, audioSrc, currentTime, duration, getSyntheticStageLyricsTime, getTargetPlaybackVolume, isNowPlayingStageActive, setPlayerState, stageActiveEntryKind, stageLyricsClockRef, syncOutputGain, syncStageLyricsClock]);
 

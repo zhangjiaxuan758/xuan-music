@@ -2940,6 +2940,7 @@ export default function App() {
                 onPlay={(e) => {
                     shouldAutoPlay.current = false;
                     currentTime.set(e.currentTarget.currentTime);
+                    if ((e.currentTarget as HTMLAudioElement & { __xuanPausing?: boolean }).__xuanPausing) return;
                     setPlayerState(PlayerState.PLAYING);
                 }}
                 onPlaying={(e) => {
@@ -2947,6 +2948,7 @@ export default function App() {
                     currentTime.set(e.currentTarget.currentTime);
                     setupAudioAnalyzer();
                     playbackAutoSkipCountRef.current = 0;
+                    if ((e.currentTarget as HTMLAudioElement & { __xuanPausing?: boolean }).__xuanPausing) return;
                     setPlayerState(PlayerState.PLAYING);
                 }}
                 onPause={(e) => {

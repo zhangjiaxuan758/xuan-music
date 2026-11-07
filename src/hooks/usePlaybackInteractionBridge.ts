@@ -137,13 +137,20 @@ export function usePlaybackInteractionBridge({
     // 小轩音乐：播放页双击两下进入 / 退出沉浸模式。
     // 用 320ms 内的两次 click 判定双击，Android 触屏与桌面鼠标都适用。
     const lastTapRef = useRef(0);
-    const handleContainerClick = useCallback(() => {
+    const handleContainerClick = useCallback((event?: React.MouseEvent) => {
+        // 只有点在播放页「空白背景」上才参与双击沉浸判定。
+        // 进度条、按钮、滑杆、输入框等交互元素一律放行，单击立即响应，
+        // 避免双击检测吞掉点击导致「要点好几次 / 等好久」。
+        const target = event?.target as HTMLElement | undefined;
+        if (target?.closest('button, a, input, textarea, select, [role="slider"], [role="button"], [data-xuan-control], [data-xuan-no-double]')) {
+            return;
+        }
         if (isPanelOpen) {
             setIsPanelOpen(false);
         }
         if (currentView !== 'player') return;
         const now = Date.now();
-        if (now - lastTapRef.current < 320) {
+        if (now - lastTapRef.current < 300) {
             lastTapRef.current = 0;
             togglePlayerChromeHidden();
         } else {
