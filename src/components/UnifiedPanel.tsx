@@ -338,11 +338,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const placeholderBg = isDaylight ? 'bg-stone-200' : 'bg-zinc-900';
     const activeTabBg = isDaylight ? 'bg-black/10' : 'bg-white/10';
     const tabSwitcherBg = isDaylight ? 'bg-black/5' : 'bg-white/5';
+    // 沉浸模式切换时按钮只做淡入淡出，不再横向位移（之前双击会「往里移动」）。
     const toggleButtonMotionClass = (isOpen || showGuideLine || isDragging)
-        ? 'translate-x-0 opacity-100'
+        ? 'opacity-100'
         : supportsHover
-            ? 'translate-x-1/2 opacity-60 group-hover:translate-x-0 group-hover:opacity-100 md:translate-x-0 md:opacity-100 md:hover:scale-105'
-            : 'translate-x-1/2 opacity-60';
+            ? 'opacity-70 group-hover:opacity-100 md:opacity-100 md:hover:scale-105'
+            : 'opacity-80';
     const canSlideOpenCommandPalette = !isOpen && Boolean(onOpenCommandPalette);
     const setCommandDestinationFeedback = (progress: number) => {
         const iconContainer = trackEndIconRef.current;
@@ -973,13 +974,10 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             <AnimatePresence>
                 {!hideToggleButton && (!isOpen || showOpenPanelCloseButton) && !isCommandPaletteOpen && (
                     <motion.div
-                        initial={{ opacity: 0, x: 20, y: 12, scale: 0.92 }}
-                        animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-                        exit={isCommandPaletteOpen
-                            ? { opacity: 0, x: 0, y: 0, scale: 1 }
-                            : { opacity: 0, x: 20, y: 12, scale: 0.92 }
-                        }
-                        transition={{ duration: 0.24, ease: 'easeOut' }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
                         className="pointer-events-auto fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}

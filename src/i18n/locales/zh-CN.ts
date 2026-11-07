@@ -420,7 +420,7 @@ export default {
     "searchPlaceholder": "搜索音乐...",
     "songs": "首",
     "loginTitle": "使用网易云APP扫码",
-    "loginNote": "打开网易云音乐APP扫一扫，在手机上确认登录（移动端授权）",
+    "loginNote": "打开网易云音乐APP扫一扫，在手机上确认登录（移动端授权，非网页版）",
     "loginTitleKugou": "使用酷狗音乐APP扫码",
     "loginNoteKugou": "打开酷狗音乐APP扫描二维码",
     "switchOnlineProvider": "切换在线音乐平台",

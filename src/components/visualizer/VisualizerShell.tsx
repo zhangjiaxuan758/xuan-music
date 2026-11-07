@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { type MotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
@@ -77,20 +78,28 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 opacity: resolvedVisualizerOpacity,
             }}
         >
-            {resolvedOnBack && !isImmersive && (
-                <button
-                    type="button"
-                    aria-label={t('ui.backToHome')}
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        resolvedOnBack();
-                    }}
-                    className="fixed right-4 top-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 shadow-lg transition-colors hover:bg-white/15 active:scale-95"
-                    style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
-                >
-                    <ChevronLeft size={22} />
-                </button>
-            )}
+            {/* 与右下角调节按钮协调：双击沉浸时同样只做 0.15s 纯淡出，不位移、不反向移动。 */}
+            <AnimatePresence>
+                {resolvedOnBack && !isImmersive && (
+                    <motion.button
+                        key="xuan-back-button"
+                        type="button"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        aria-label={t('ui.backToHome')}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            resolvedOnBack();
+                        }}
+                        className="fixed right-4 top-4 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 shadow-lg transition-colors hover:bg-white/15 active:scale-95"
+                        style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
+                    >
+                        <ChevronLeft size={22} />
+                    </motion.button>
+                )}
+            </AnimatePresence>
 
             <VisualizerBackgroundRenderer
                 config={sharedProps?.background}

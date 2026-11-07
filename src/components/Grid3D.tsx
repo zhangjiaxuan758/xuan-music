@@ -388,13 +388,19 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     }, [homeViewTab, isChartTab]);
 
     // 缓存：读取本地已缓存的歌曲（播放时由缓存层写入）。
+    // 播放中写完缓存会派发 xuan:cache-updated，这里实时刷新，
+    // 否则用户停在缓存 tab 时刚缓存的歌不会出现。
     useEffect(() => {
-        if (!isCacheTab) return;
-        try {
-            const raw = localStorage.getItem('xuan_cached_media_songs');
-            const parsed = raw ? JSON.parse(raw) : [];
-            setCacheSongs(Array.isArray(parsed) ? parsed : []);
-        } catch { setCacheSongs([]); }
+        const reload = () => {
+            try {
+                const raw = localStorage.getItem('xuan_cached_media_songs');
+                const parsed = raw ? JSON.parse(raw) : [];
+                setCacheSongs(Array.isArray(parsed) ? parsed : []);
+            } catch { setCacheSongs([]); }
+        };
+        if (isCacheTab) reload();
+        window.addEventListener('xuan:cache-updated', reload);
+        return () => window.removeEventListener('xuan:cache-updated', reload);
     }, [isCacheTab]);
 
     useEffect(() => {

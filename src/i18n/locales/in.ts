@@ -392,7 +392,7 @@ export default {
     "searchPlaceholder": "Cari musik...",
     "songs": "lagu",
     "loginTitle": "Pindai dengan Aplikasi Netease",
-    "loginNote": "Buka Aplikasi Netease Music > Jelajahi > Pindai QR",
+    "loginNote": "Buka Aplikasi Netease Music, pindai dan konfirmasi di ponsel (masuk perangkat seluler)",
     "loginTitleKugou": "Pindai dengan KuGou Music",
     "loginNoteKugou": "Buka KuGou Music dan pindai kode QR ini",
     "loadingQr": "Memuat QR...",

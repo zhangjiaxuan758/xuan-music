@@ -3,6 +3,7 @@ import type { MutableRefObject, RefObject } from 'react';
 import { PlayerState } from '../types';
 import type { ReplayGainMode, SongResult, StatusMessage } from '../types';
 import type { LocalSong } from '../types';
+import { CapacitorHttp } from '@capacitor/core';
 import { saveAudioBlob } from '../services/audioCache';
 import { hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
@@ -35,6 +36,36 @@ type UsePlaybackAudioBridgeParams = {
     getCoverUrl: () => string | null;
     updateCacheSize: () => void;
     t: (key: string) => string;
+};
+
+
+// 网易云音频 CDN 不给 WebView 发 Access-Control-Allow-Origin，浏览器里的 fetch 会被拦，
+// 这是「歌不缓存」的真正原因之一。改走 Capacitor 原生 HTTP 层下载（不受 CORS 约束），
+// 再交给 IndexedDB 缓存；CapacitorHttp 的 blob 响应以 base64 返回。
+const downloadBlobViaNative = async (url: string): Promise<Blob> => {
+    const response = await CapacitorHttp.get({
+        url,
+        responseType: 'blob',
+        headers: {
+            'User-Agent': 'NeteaseMusic/8.10.30',
+            'Referer': 'https://music.163.com',
+        },
+        connectTimeout: 20000,
+        readTimeout: 90000,
+    });
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(`native download status ${response.status}`);
+    }
+    let raw = typeof response.data === 'string' ? response.data : '';
+    const comma = raw.indexOf(',');
+    if (raw.startsWith('data:') && comma > 0) raw = raw.slice(comma + 1);
+    if (!raw) throw new Error('native download empty body');
+    const binary = atob(raw);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const headers = response.headers ?? {};
+    const contentType = headers['Content-Type'] || headers['content-type'] || 'audio/mpeg';
+    return new Blob([bytes.buffer as ArrayBuffer], { type: contentType });
 };
 
 // Bridges audio element setup, autoplay, replay gain, and media caching.
@@ -108,24 +139,24 @@ export function usePlaybackAudioBridge({
 
     const cacheSongAssets = useCallback(async () => {
         if (!currentSong || !audioSrc || audioSrc.startsWith('blob:')) return;
+        if (!enableMediaCache) return;
 
         const existing = await hasCachedSongAudio(currentSong);
-        if (existing || !enableMediaCache) return;
-
-        console.log('[Cache] Caching fully played song:', currentSong.name);
+        if (existing) return;
 
         try {
-            const response = await fetch(audioSrc);
-            const blob = await response.blob();
+            const blob = await downloadBlobViaNative(audioSrc);
+            if (blob.size === 0) return;
             await saveAudioBlob(getSongResourceCacheKey('audio', currentSong), blob);
-            // 记录到首页「缓存」tab（最多 100 首）。
+            // 记录到首页「缓存」tab（最多 100 首），并通知首页立即刷新。
             try {
                 const raw = localStorage.getItem('xuan_cached_media_songs');
                 const list = raw ? JSON.parse(raw) : [];
-                const next = [currentSong, ...(Array.isArray(list) ? list : []).filter((s: any) => s?.id !== currentSong?.id)].slice(0, 100);
+                const next = [currentSong, ...(Array.isArray(list) ? list : []).filter((item: any) => item?.id !== currentSong?.id)].slice(0, 100);
                 localStorage.setItem('xuan_cached_media_songs', JSON.stringify(next));
+                window.dispatchEvent(new CustomEvent('xuan:cache-updated'));
             } catch { /* ignore */ }
-            console.log('[Cache] Audio saved');
+            console.log('[Cache] Audio saved', blob.size);
         } catch (error) {
             console.error('[Cache] Failed to download audio for cache', error);
         }
@@ -133,10 +164,10 @@ export function usePlaybackAudioBridge({
         const coverUrl = getCoverUrl();
         if (coverUrl) {
             try {
-                const response = await fetch(coverUrl, { mode: 'cors' });
-                const blob = await response.blob();
-                await saveToCache(getSongResourceCacheKey('cover', currentSong), blob);
-                console.log('[Cache] Cover saved');
+                const blob = await downloadBlobViaNative(coverUrl);
+                if (blob.size > 0) {
+                    await saveToCache(getSongResourceCacheKey('cover', currentSong), blob);
+                }
             } catch (error) {
                 console.error('[Cache] Failed to download cover for cache', error);
             }
@@ -146,6 +177,19 @@ export function usePlaybackAudioBridge({
             updateCacheSize();
         }
     }, [audioSrc, currentSong, enableMediaCache, getCoverUrl, isPanelOpen, panelTab, updateCacheSize]);
+
+    // 播放一开始就在后台把整首缓存下来，不管有没有听完、有没有切歌。
+    // 之前只在 onEnded 里调用一次，没切到下一首就直接切歌时完全不写缓存。
+    const cachedSrcRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!audioSrc || audioSrc.startsWith('blob:')) return;
+        if (!enableMediaCache || !currentSong) return;
+        if (cachedSrcRef.current === audioSrc) return;
+        cachedSrcRef.current = audioSrc;
+        // 稍让出主线程，避免和起播抢带宽。
+        const timer = window.setTimeout(() => { void cacheSongAssets(); }, 1200);
+        return () => window.clearTimeout(timer);
+    }, [audioSrc, enableMediaCache, currentSong, cacheSongAssets]);
 
     useEffect(() => {
         if (audioRef.current) {

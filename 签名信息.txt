@@ -3,7 +3,7 @@
 
 应用名称：小轩音乐
 包名：com.music.xuan
-版本：1.6.5 (versionCode 10621)
+版本：1.6.5 (versionCode 10622)
 适配范围：Android 10 (API 29) ~ Android 16 (API 36)，targetSdk 36 / compileSdk 36
 屏幕方向：强制横屏（sensorLandscape）+ 沉浸式全屏（隐藏状态栏/导航栏），挖孔区域 ALWAYS 铺满
 签名方案：V1 (JAR) + V2 + V3 同时启用
@@ -37,7 +37,42 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
   - 离线（无网络）→ 统一提示「无网络连接」，不误报为会员问题
 
 
-二、10621 版改动清单（在 10620 基础上新增/修复）
+二、10622 版改动清单（最新，在 10621 基础上修复）
+--------------------
+扫码登录（移动端授权）
+  - unikey / check 的 type 由 1（网页版授权，手机端显示「web端 / 网页版」）
+    改为 2（网易云官方定义的移动 / 穿戴设备档位），手机 App 扫码按移动端授权确认。
+    实测 type=2 的 client/login 正常返回 801（等待扫码），登录链路可用。
+缓存（无论听完或没听完都缓存）
+  - 根因1：cacheSongAssets 只在 onEnded（整首听完）调用一次，没听完切歌完全不写缓存。
+    现在 audioSrc 一变就在后台开始缓存整首（延迟 1.2s 让出起播带宽），
+    onEnded 保留为兜底，已缓存则跳过，不重复下载。
+  - 根因2：网易云音频 CDN 不给 WebView 发 Access-Control-Allow-Origin，
+    浏览器 fetch 会被跨域拦截，所以「听完也没缓存成功」。现在改走 Capacitor
+    原生 HTTP 层（CapacitorHttp，responseType=blob，base64 还原成 Blob），
+    不受 CORS 约束；封面图片同样处理。
+  - 缓存写入后派发 xuan:cache-updated，首页「缓存」tab 实时刷新，
+    不用退出重进才看到新缓存的歌。
+进度条（三个现象一次根治）
+  - 之前用 showExpanded ? <ExpandedView> : <CollapsedView> 切换，会把正在拖动的
+    ProgressBar 整块卸载重挂，pointer capture 丢失，表现为「时间线一滑就消失、
+    进度条又缩回小条」。现在 ProgressBar 是唯一常驻实例，展开/收起只切换上方控件行。
+  - 去掉「暂停时强制展开」逻辑：它让 showExpanded 恒为 true，点外部收起完全失效。
+  - 新增 scrubbing 状态：拖动中锁住展开态并忽略外部点击，松手后仍保持展开，
+    点外部才收起；disabled 分支补上 onSeekEnd 配对，避免状态卡死。
+  - 外壳宽度两态统一为 w-full，避免展开瞬间轨道变宽导致拖动坐标跳变。
+沉浸模式按钮协调
+  - 右上「返回上一页」与右下「调节」按钮统一为 0.15s 纯淡出 / 淡入，
+    不再做 x/y 位移（此前两者一个往里移、一个反向移，方向相反不协调）。
+原生层（Kotlin）
+  - 原生入口由 Java 的 MainActivity.java 改写为 Kotlin 的 MainActivity.kt，
+    并在 Gradle 引入 org.jetbrains.kotlin.android 插件（jvmTarget 17）。
+    强制横屏、全屏 edge-to-edge、挖孔铺满逻辑保持完全一致。
+  - 说明：APK 本身是编译签名的原生安卓包（原生 Activity + 原生 HTTP 缓存下载），
+    UI 仍由 Capacitor WebView 渲染。若要做纯 Jetpack Compose 全原生重写，
+    属于独立立项，会重建全部页面与交互。
+
+三、10621 版改动清单（在 10620 基础上新增/修复）
 --------------------
 音效（真实可感知，贴近官方预设）
   - 官方 API 不提供可调音效参数（「鲸云音效」是客户端本地 DSP），因此用 Web Audio
@@ -73,7 +108,7 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
   - 设置里「歌词样式」工作台：横屏可滚动；歌词动画 / 背景等分区点击改用
     pointerdown 直接响应，修复「划不动、点了没效果」
 
-三、10620 版改动清单（在 10619 基础上修复）
+四、10620 版改动清单（在 10619 基础上修复）
 --------------------
 播放页
   - 暂停闪烁：淡出暂停的 240ms 内，timeupdate 仍会把状态改回 PLAYING，
@@ -100,7 +135,7 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
   - 顶栏改为单行 flex：标题 / 选项 / 搜索框同一条基线对齐
   - 选项胶囊恢复横向滑动，不再换行或被搜索框挤掉
 
-四、10619 版改动清单（在 10618 基础上修复）
+五、10619 版改动清单（在 10618 基础上修复）
 --------------------
 滚动与手势
   - 去掉给所有 overflow-hidden 容器加的 touch-action:pan-y，首页 3D 卡片轨道恢复横滑
@@ -168,7 +203,7 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
   - 会员曲目走与搜索一致的官方提示；登录且为会员时播完整版
 
 
-五、二次构建步骤
+六、二次构建步骤
 ----------------
 1. 安装 Node.js 22、JDK 21、Android SDK（platform android-36 / build-tools 36.0.0）
 2. 在 android/local.properties 写入 sdk.dir=<你的 Android SDK 路径>
@@ -186,7 +221,7 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
 6. 验证输出应为：Verified using v1 scheme: true / v2 scheme: true / v3 scheme: true
 
 
-六、源码与仓库
+七、源码与仓库
 --------------
 源码（占位符脱敏版）：https://github.com/zhangjiaxuan758/xuan-music
 说明：源码包中网易云 eapi 协议常量已替换为 __PLACEHOLDER_*__ 占位符，
@@ -194,7 +229,7 @@ SHA256：D0:40:40:8F:A9:F4:1A:06:DC:F6:EA:32:84:78:03:B6:97:E1:7B:03:EB:9A:69:56
       补齐占位符后可自行编译，方法见包内 README.md 与 上传说明.txt。
 
 
-七、安全提醒
+八、安全提醒
 ------------
 1. 任何随 APK 下发、或运行时从公网拉取的内容都不算秘密，密钥不能放客户端。
 2. 之前提供给开发过程的网易云开放平台 AppSecret / RSA 私钥，若曾外发过，

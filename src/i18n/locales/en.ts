@@ -419,7 +419,7 @@ export default {
     "searchPlaceholder": "Search for music...",
     "songs": "songs",
     "loginTitle": "Scan with Netease App",
-    "loginNote": "Open Netease Music App > Discover > Scan QR",
+    "loginNote": "Open Netease Music App, scan and confirm on your phone (mobile sign-in)",
     "loginTitleKugou": "Scan with KuGou Music",
     "loginNoteKugou": "Open KuGou Music and scan this QR code",
     "switchOnlineProvider": "Switch online music provider",

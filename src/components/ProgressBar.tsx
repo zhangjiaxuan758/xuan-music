@@ -99,7 +99,12 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         // 展开（放大）是纯 UI 交互，不应被禁用；先通知外层展开，
         // seek 本身仍受 disabled 限制，避免「刚播放点进度条没反应」。
         onSeekStart?.();
-        if (disabled) return;
+        if (disabled) {
+            // 展开已触发，但不会进入拖动；必须配对 onSeekEnd，
+            // 否则外层会一直锁在「拖动中」，导致点外部收不回去。
+            onSeekEnd?.();
+            return;
+        }
         isDraggingRef.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
         seekToClientX(e.clientX);

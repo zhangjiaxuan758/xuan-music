@@ -421,7 +421,7 @@ export default {
     "searchPlaceholder": "搜尋音樂...",
     "songs": "首",
     "loginTitle": "使用網易雲APP掃碼",
-    "loginNote": "開啟網易雲音樂APP > 發現 > 扫一扫",
+    "loginNote": "開啟網易雲音樂APP掃一掃，在手機上確認登入（行動端授權）",
     "loginTitleKugou": "使用酷狗音樂APP掃碼",
     "loginNoteKugou": "開啟酷狗音樂APP扫描二维码",
     "switchOnlineProvider": "切换線上音樂平台",
