@@ -85,3 +85,21 @@ export const resolveEffectiveQuality = (
     if ((quality === 'lossless' || quality === 'hires') && !isVip) return 'high';
     return quality;
 };
+
+/**
+ * 用官方 /api/song/enhance/player/url/v1 返回的码率(br)反推实际拿到的音质。
+ * 官方会按账号权限把无损 / Hi-Res 降级成 320k / 192k / 128k，
+ * 所以「当前用上了哪一档」必须以官方返回的 br 为准，不能用用户点选的档位。
+ * 官方码率：128001 标准 / 192001 较高 / 320001 极高 / 999001 无损 / 1999001 Hi-Res。
+ */
+export const qualityFromOfficialBr = (
+    br: unknown,
+    requested: AudioQualityPreference,
+): AudioQualityPreference => {
+    const rate = Number(br);
+    if (!Number.isFinite(rate) || rate <= 0) return requested;
+    if (rate >= 1900000) return 'hires';
+    if (rate >= 900000) return 'lossless';
+    if (rate >= 190000) return 'high';
+    return 'standard';
+};

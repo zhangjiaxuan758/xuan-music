@@ -19,7 +19,8 @@ import {
     type NeteasePlaybackRestriction,
 } from './playbackRestriction';
 import { writeProviderSessionValue } from './providerStorage';
-import { isNeteaseLoggedIn } from './audioQualityGate';
+import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
+import { isNeteaseLoggedIn, resolveEffectiveQuality, qualityFromOfficialBr } from './audioQualityGate';
 
 // src/services/onlineMusic/neteaseProvider.ts
 
@@ -274,9 +275,16 @@ export const neteaseProvider: OnlineMusicProvider = {
             // 只要任一档位能拿到可播放地址就立即返回，避免「点击播放没反应」。
             // 未登录时只用官方 standard(128k)，不再越级请求高码率；
             // 登录后才按用户选择依次降级重试。
+            // 会员身份来自官方 /api/w/nuser/account/get + /api/nuser/account/get
+            // 返回的 profile.vipType；官方 profile 不带该字段时视为「未知」并放行，
+            // 由官方取链接口做最终判定，避免把真会员误判成非会员。
+            const accountUser = useOnlineProviderAccountStore.getState().accounts?.['netease']?.user;
+            const vipType = accountUser?.vipType;
+            const isVip = vipType == null ? true : Number(vipType) !== 0;
+            const effectiveQuality = resolveEffectiveQuality(quality, isVip);
             const levels = isNeteaseLoggedIn()
                 ? [...new Set([
-                    mapQuality(quality),
+                    mapQuality(effectiveQuality),
                     'exhigh',
                     'higher',
                     'standard',
@@ -307,7 +315,8 @@ export const neteaseProvider: OnlineMusicProvider = {
                         return {
                             url: String(rawUrl).replace(/^http:/, 'https:'),
                             fetchedAt: Date.now(),
-                            quality,
+                            // 以官方返回的 br 为准，避免「选了无损、实际拿到 320k」却仍显示无损
+                            quality: qualityFromOfficialBr(entry?.br, effectiveQuality),
                             ...(trialSeconds ? { trialSeconds } : {}),
                         };
                     }
