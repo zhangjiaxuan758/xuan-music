@@ -81,6 +81,22 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
     const expandTimeoutRef = useRef<number | null>(null);
     const collapseTimeoutRef = useRef<number | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // 触屏没有 hover：展开后手指移开不会触发 mouseleave，控件就一直停在展开态。
+    // 这里监听全局 pointerdown，点到控件外面的任何地方就收回去。
+    useEffect(() => {
+        if (!isHovered) return;
+        const handleOutsidePointerDown = (event: PointerEvent) => {
+            const el = containerRef.current;
+            if (!el) return;
+            if (event.target instanceof Node && el.contains(event.target)) return;
+            setIsHovered(false);
+            setIsTimelineOpen(false);
+        };
+        document.addEventListener('pointerdown', handleOutsidePointerDown, true);
+        return () => document.removeEventListener('pointerdown', handleOutsidePointerDown, true);
+    }, [isHovered]);
 
     const canAutoExpand = canTogglePlay && duration > 0;
     const showExpanded = isHovered || (canAutoExpand && playerState !== PlayerState.PLAYING && currentView !== 'home');
@@ -154,6 +170,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                 onClick={(e) => e.stopPropagation()}
             >
                 <div
+                    ref={containerRef}
                     className="pointer-events-auto w-full flex justify-center"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
@@ -196,6 +213,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                                     currentTime={currentTime}
                                     duration={duration}
                                     onSeek={onSeek}
+                                    onProgressStart={() => setIsHovered(true)}
                                     primaryColor={primaryColor}
                                     secondaryColor={secondaryColor}
                                     trackColor={trackColor}
@@ -351,6 +369,7 @@ interface CollapsedViewProps {
     currentTime: MotionValue<number>;
     duration: number;
     onSeek: (time: number) => void;
+    onProgressStart?: () => void;
     primaryColor: string;
     secondaryColor: string;
     trackColor?: string;
@@ -361,6 +380,7 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({
     currentTime,
     duration,
     onSeek,
+    onProgressStart,
     primaryColor,
     secondaryColor,
     trackColor,
@@ -372,6 +392,7 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({
                 currentTime={currentTime}
                 duration={duration}
                 onSeek={onSeek}
+                onSeekStart={onProgressStart}
                 primaryColor={primaryColor}
                 secondaryColor={secondaryColor}
                 trackColor={trackColor}

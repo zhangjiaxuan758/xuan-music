@@ -2959,6 +2959,11 @@ export default function App() {
                 }}
                 onTimeUpdate={(e) => {
                     const audioElement = e.currentTarget;
+                    // 淡出暂停期间音频仍在播放（约 240ms），timeupdate 会每 250ms 把状态
+                    // 改回 PLAYING，图标就会「闪一下播放」再回到暂停。这里同样跳过。
+                    if ((audioElement as HTMLAudioElement & { __xuanPausing?: boolean }).__xuanPausing) {
+                        return;
+                    }
                     if (!audioElement.paused && !audioElement.ended) {
                         currentTime.set(audioElement.currentTime);
                         setPlayerState(PlayerState.PLAYING);

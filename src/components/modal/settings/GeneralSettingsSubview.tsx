@@ -6,7 +6,6 @@ import type { Theme } from '../../../types';
 import type { AppLanguagePreference } from '../../../i18n/config';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
-import { XuanAudioEffectSettings } from './XuanAudioEffectSettings';
 import PinnedCommandSettings from './PinnedCommandSettings';
 import { supportsLocalMusicImport } from '../../../platform/runtime';
 
@@ -221,7 +220,6 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                 </div>
             </section>
 
-            <XuanAudioEffectSettings isDaylight={isDaylight} theme={theme} />
 
             <PinnedCommandSettings
                 isDaylight={isDaylight}

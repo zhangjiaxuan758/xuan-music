@@ -20,18 +20,19 @@ import {
 import { readProviderSessionValue } from './onlineMusic/providerStorage';
 
 /**
- * 播放前的元数据级判定：网易云返回的 fee 字段本身就能说明这首是不是会员 / 付费曲。
- * 之前只有搜索入口会在解析音频时拿到 code=-110 才提示，榜单 / 开发者推荐 / 缓存
- * 这些入口在未登录时会被官方降级成低码率试听甚至空地址，于是「点了没反应也不提示」。
- * 这里先按 fee 统一判一次，所有入口共用同一套官方口径文案。
+ * 兜底用的元数据判定：只有在官方接口完全拿不到可播放地址时才使用。
+ *
+ * 不能一上来就按 fee 拦截——网易云对未登录 / 会员过期的账号大部分会员曲
+ * 仍会下发 freeTrialInfo 试听片段（约 30~60 秒），提前拦截会让「原来能试听」
+ * 变成「点了直接听不了」。所以先请求官方，拿到 url（含试听）就照常播放，
+ * 真的空地址时再按 fee 给出官方口径提示。
  */
 const describeSongMetadataRestriction = (song: SongResult): NeteasePlaybackRestriction | null => {
     const fee = Number((song as any)?.fee ?? (song as any)?.privilege?.fee ?? 0);
     if (!Number.isFinite(fee) || fee <= 0) return null;
 
     const hasSession = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
-    // 已登录时不在这里拦：会员能听完整版、买过专辑的人也能听，
-    // 由官方接口返回的 code=-110 再决定提示，避免误伤。
+    // 已登录交给官方判断：会员能听完整版，过期会员/买过专辑的情况官方会回试听或 -110。
     if (hasSession) return null;
     if (fee === 4) return { reason: 'paid-album', fee };
     if (fee === 1 || fee === 8) return { reason: 'vip', fee };
@@ -58,11 +59,6 @@ export async function loadOnlineSongAudioSource(
         return { kind: 'ok', audioSrc: prefetched.audioUrl };
     }
 
-    const metadataRestriction = describeSongMetadataRestriction(song);
-    if (metadataRestriction) {
-        return { kind: 'restricted', restriction: metadataRestriction };
-    }
-
     let source = null;
     try {
         source = await omni.getAudioSource(song, audioQuality);
@@ -77,6 +73,12 @@ export async function loadOnlineSongAudioSource(
     }
     const url = toSafeRemoteUrl(source?.url);
     if (!url) {
+        // 官方确实没给地址（未登录且无试听、或已下架）时，才用元数据兜底提示，
+        // 避免出现「点了没反应也不提示」。
+        const metadataRestriction = describeSongMetadataRestriction(song);
+        if (metadataRestriction) {
+            return { kind: 'restricted', restriction: metadataRestriction };
+        }
         return { kind: 'unavailable' };
     }
 

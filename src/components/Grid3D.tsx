@@ -652,10 +652,10 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
             {/* Main Header Container (Fades out when sliding/interacting) */}
             <div className="transition-opacity duration-300 ease-in-out z-20 opacity-100 select-none">
-                <div data-xuan-header-grid className="grid grid-cols-2 md:grid-cols-3 items-center w-full max-w-7xl mx-auto p-4 md:p-8 gap-y-4 md:gap-y-0">
+                <div data-xuan-header-grid className="flex items-center gap-3 w-full max-w-7xl mx-auto px-4 py-2 md:px-8">
                     {/* Left title and settings */}
-                    <div className="flex items-center justify-start order-1 md:order-none">
-                        <h1 className="text-2xl font-bold tracking-tight opacity-90 flex items-center gap-3 whitespace-nowrap">
+                    <div className="flex shrink-0 items-center justify-start">
+                        <h1 className="text-lg md:text-2xl font-bold tracking-tight opacity-90 flex items-center gap-3 whitespace-nowrap">
                             小轩音乐
                         </h1>
                         <button
@@ -733,8 +733,8 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     </div>
 
                     {/* Center Tab Switcher */}
-                    <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-3 min-w-0" data-xuan-tabbar>
-                        <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full origin-center max-w-full overflow-x-auto xuan-hide-scrollbar`}>
+                    <div className="flex flex-1 min-w-0 justify-center" data-xuan-tabbar>
+                        <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full origin-center max-w-full min-w-0 overflow-x-auto xuan-hide-scrollbar`}>
                             <div className="inline-flex items-center gap-0">
                                 {[
                                     ...(showHomeTabPlaylist ? [{ key: 'playlist', label: t('home.playlists') }] : []),
@@ -781,8 +781,8 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     </div>
 
                     {/* Right Search Bar */}
-                    <div className="flex justify-end order-2 md:order-none md:col-start-3">
-                        <form onSubmit={handleSearch} className="relative w-full md:w-56 transition-all focus-within:md:w-72">
+                    <div className="flex shrink-0 justify-end">
+                        <form onSubmit={handleSearch} className="relative w-32 sm:w-40 md:w-56 transition-all focus-within:md:w-72">
                             {isSearchingActive ? (
                                 <Loader2 className="absolute left-3 top-1/2 w-4 h-4 animate-spin opacity-40 -mt-2" />
                             ) : (

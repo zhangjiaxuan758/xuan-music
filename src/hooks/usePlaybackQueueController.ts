@@ -542,17 +542,17 @@ export function usePlaybackQueueController({
 
             if (preloadedOnlineAudioResult.kind === 'restricted') {
                 const r = preloadedOnlineAudioResult.restriction;
-                // 优先展示官方返回的原始文案（message / typeDesc），
-                // 官方未给文案时按官方返回的 code / fee / 试听字段映射官方口径提示。
-                const text = (typeof navigator !== 'undefined' && navigator.onLine === false)
+                // 先按受限原因给官方口径文案；官方原始 message 只作为兜底，
+                // 否则接口偶尔下发的简短英文/风控文案会盖掉「会员专享」这类明确提示。
+                const isOffline = (typeof navigator !== 'undefined' && navigator.onLine === false) || r.reason === 'offline';
+                const text = isOffline
                     ? t('status.restrictedOffline', '无网络连接')
-                    : r.officialMessage
-                    || (r.reason === 'offline' && t('status.restrictedOffline', '无网络连接'))
+                    : (r.reason === 'vip' && t('status.restrictedVip'))
                     || (r.reason === 'paid-album' && t('status.restrictedPaidAlbum'))
-                    || (r.reason === 'vip' && t('status.restrictedVip'))
                     || (r.reason === 'no-copyright' && t('status.restrictedNoCopyright'))
                     || (r.reason === 'region' && t('status.restrictedRegion'))
                     || (r.reason === 'trial' && t('status.restrictedTrial', { seconds: r.trialSeconds ?? 45 }))
+                    || r.officialMessage
                     || t('status.restrictedGeneric');
                 setIsLyricsLoading(false);
                 // 权限类限制不是「已下架」：不自动跳到下一首，只提示官方原因。

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { COMMAND_PALETTE_COMMANDS } from '../command-palette/commandRegistry';
@@ -14,6 +15,7 @@ export const UserGuideModal: React.FC<{ theme?: Theme | null }> = ({ theme }) =>
     const setIsUserGuideModalOpen = useSettingsUiStore(state => state.setIsUserGuideModalOpen);
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
     const [page, setPage] = useState<GuidePage>(1);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // Reset to page 1 whenever the modal is reopened
     useEffect(() => {
@@ -41,6 +43,10 @@ export const UserGuideModal: React.FC<{ theme?: Theme | null }> = ({ theme }) =>
 
     const goToPage = (nextPage: GuidePage) => {
         setPage(nextPage);
+        // 切页后回到顶部，否则会停在上页的滚动位置，看起来像「划不动」。
+        requestAnimationFrame(() => {
+            if (scrollRef.current) scrollRef.current.scrollTop = 0;
+        });
     };
 
     const goNext = () => {
@@ -79,6 +85,27 @@ export const UserGuideModal: React.FC<{ theme?: Theme | null }> = ({ theme }) =>
                         onClick={(e) => e.stopPropagation()}
                         className={`${bgClass} border rounded-[2rem] max-w-lg w-full max-h-[85vh] p-8 shadow-2xl relative overflow-hidden flex flex-col`}
                     >
+                        <div className="absolute right-4 top-4 z-20 flex items-center gap-1">
+                            {page > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={goBack}
+                                    aria-label={t('userGuide.back', 'Back')}
+                                    className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${isDaylight ? 'bg-black/5 hover:bg-black/10 text-zinc-700' : 'bg-white/10 hover:bg-white/15 text-zinc-100'}`}
+                                >
+                                    <ArrowLeft size={16} />
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setIsUserGuideModalOpen(false)}
+                                aria-label={t('common.close', 'Close')}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${isDaylight ? 'bg-black/5 hover:bg-black/10 text-zinc-700' : 'bg-white/10 hover:bg-white/15 text-zinc-100'}`}
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
                         <div className="absolute inset-0 pointer-events-none z-0">
                             <div
                                 className={`absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[80px] ${isDaylight ? 'opacity-20' : 'opacity-10'}`}
@@ -90,7 +117,17 @@ export const UserGuideModal: React.FC<{ theme?: Theme | null }> = ({ theme }) =>
                             />
                         </div>
 
-                        <div className="relative z-10 flex-1 overflow-y-auto min-h-0 hide-scrollbar">
+                        <div
+                            ref={scrollRef}
+                            data-xuan-scroll
+                            className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain xuan-hide-scrollbar pr-1"
+                            style={{
+                                touchAction: 'pan-y',
+                                // Android WebView 上 -webkit-overflow-scrolling:touch 与
+                                // transform 动画叠加后容易出现「滑几次就卡住」，这里用 auto。
+                                WebkitOverflowScrolling: 'auto',
+                            }}
+                        >
                             <motion.div
                                 key={`page-${page}`}
                                 initial={{ opacity: 0 }}

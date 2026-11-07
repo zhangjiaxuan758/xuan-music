@@ -11,6 +11,7 @@ import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../store
 import { syncNow } from '../../services/sync/syncCoordinator';
 import { isSyncConfigured } from '../../services/sync/syncConfig';
 import QuickEffectPicker from './QuickEffectPicker';
+import { AudioEffectQuickPicker } from './AudioEffectQuickPicker';
 
 // Controls tab composes compact visualizer and background pickers without changing player state flow.
 
@@ -280,6 +281,11 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                             />
                         </div>
                     </div>
+
+                    <AudioEffectQuickPicker
+                        isDaylight={isDaylight}
+                        accentColor={theme.primaryColor}
+                    />
 
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-0.5">

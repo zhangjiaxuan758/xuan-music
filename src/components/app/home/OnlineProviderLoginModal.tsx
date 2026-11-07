@@ -36,20 +36,20 @@ const OnlineProviderLoginModal = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-[100] overflow-y-auto overscroll-contain bg-black/60 backdrop-blur-xl p-4"
+            className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-black/60 p-3"
             data-xuan-scroll
             role="dialog"
             aria-modal="true"
             aria-label={title}
         >
             {/* min-h-full 让内容不足一屏时保持居中，超出一屏时从顶部开始并可上下滑动 */}
-            <div className="flex min-h-full items-center justify-center">
+            <div className="flex min-h-full w-full flex-col items-center justify-start">
                 <motion.div
                     initial={{ scale: 0.92, opacity: 0, y: 24 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.92, opacity: 0, y: 12 }}
                     transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
-                    className="bg-zinc-900/90 border border-white/10 p-8 rounded-3xl max-w-sm w-full text-center relative shadow-2xl my-auto shrink-0"
+                    className="bg-zinc-900/90 border border-white/10 p-6 rounded-3xl max-w-sm w-full text-center relative shadow-2xl my-auto shrink-0"
                 >
                     <button
                         type="button"
@@ -60,13 +60,13 @@ const OnlineProviderLoginModal = ({
                     >
                         <X size={16} />
                     </button>
-                    <img src={neteaseLogo} alt="网易云音乐" className="w-11 h-11 rounded-2xl mx-auto mb-3 shadow-md" />
-                    <h3 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+                    <img src={neteaseLogo} alt="网易云音乐" className="w-10 h-10 rounded-2xl mx-auto mb-2 shadow-md" />
+                    <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-primary)' }}>{title}</h3>
                     <div className="relative inline-block bg-white p-2 rounded-xl mb-4 shadow-inner">
                         {qrCodeImg ? (
-                            <img src={qrCodeImg} alt="QR Code" className="w-40 h-40" />
+                            <img src={qrCodeImg} alt="QR Code" className="w-36 h-36" />
                         ) : (
-                            <div className="w-40 h-40 flex items-center justify-center bg-gray-100 rounded-lg">
+                            <div className="w-36 h-36 flex items-center justify-center bg-gray-100 rounded-lg">
                                 <Loader2 className="animate-spin text-gray-400" size={24} />
                             </div>
                         )}
@@ -80,7 +80,7 @@ const OnlineProviderLoginModal = ({
                             {retryLabel}
                         </button>
                     )}
-                    <p className="text-[10px] opacity-30 mt-6" style={{ color: 'var(--text-secondary)' }}>{note}</p>
+                    <p className="text-[10px] opacity-30 mt-4" style={{ color: 'var(--text-secondary)' }}>{note}</p>
                 </motion.div>
             </div>
         </motion.div>
