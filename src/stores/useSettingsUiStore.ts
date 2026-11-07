@@ -18,6 +18,8 @@ import { applyAppLanguagePreference, readStoredAppLanguagePreference, type AppLa
 import { normalizeFontFamilyStack, normalizeFontWeight } from '../utils/fontStacks';
 import i18n from '../i18n/config';
 import type { AudioQualityPreference } from '../types/onlineMusic';
+import { readProviderSessionValue } from '../services/onlineMusic/providerStorage';
+import { XUAN_LOGIN_CONFIRMED_EVENT } from '../services/onlineMusic/audioQualityGate';
 import {
     normalizePinnedCommandIds,
     readPinnedCommandIds,
@@ -133,7 +135,7 @@ export const resolveStoredAudioQuality = (saved: string | null): AudioQuality =>
 
 const readStoredAudioQuality = (): AudioQuality => {
     if (typeof window === 'undefined') {
-        return 'high';
+        return 'standard';
     }
 
     const saved = localStorage.getItem('default_audio_quality');
@@ -141,6 +143,10 @@ const readStoredAudioQuality = (): AudioQuality => {
     if (saved === 'exhigh') {
         localStorage.setItem('default_audio_quality', 'high');
     }
+    // 未登录时按网易云官方口径只用标准音质；不覆盖已保存的偏好，
+    // 登录成功后由 XUAN_LOGIN_CONFIRMED_EVENT 重新读取。
+    const loggedIn = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
+    if (!loggedIn) return 'standard';
     return quality;
 };
 
@@ -2760,4 +2766,14 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
 
 if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {
     void window.electron.setNativeTheme(useSettingsUiStore.getState().isDaylight ? 'light' : 'dark');
+}
+
+// 登录成功后，把音质恢复为用户此前保存的偏好（未登录期间被强制为标准）。
+if (typeof window !== 'undefined') {
+    window.addEventListener(XUAN_LOGIN_CONFIRMED_EVENT, () => {
+        try {
+            const saved = localStorage.getItem('default_audio_quality');
+            useSettingsUiStore.getState().setAudioQuality(resolveStoredAudioQuality(saved));
+        } catch { /* ignore */ }
+    });
 }

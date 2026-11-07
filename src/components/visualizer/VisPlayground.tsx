@@ -1043,6 +1043,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
             className="fixed inset-0 z-[140] backdrop-blur-xl p-3 sm:p-5"
+            data-xuan-visplayground
             style={{ backgroundColor: overlayBackground }}
             onClick={onClose}
         >
@@ -1072,8 +1073,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                     </div>
                 </div>
 
-                <div className="grid min-h-0 flex-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.25fr)_360px]">
-                    <div className="relative min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 bg-black/20">
+                <div data-xuan-visgrid className="grid min-h-0 flex-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.25fr)_360px]">
+                    <div data-xuan-vispreview className="relative min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 bg-black/20">
                         <div className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs uppercase tracking-[0.22em] backdrop-blur-md" style={{ color: 'rgba(255,255,255,0.78)' }}>
                             <Sparkles size={13} />
                             <span>{t('ui.livePreview')}</span>

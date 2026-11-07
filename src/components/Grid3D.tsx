@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { pushSearchHistory } from '../services/searchHistory';
+import { XUAN_REQUEST_LOGIN_EVENT, XUAN_LOGIN_CONFIRMED_EVENT, consumePendingLogin } from '../services/onlineMusic/audioQualityGate';
 import { useTranslation } from 'react-i18next';
 import { Search, Loader2, Settings } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -288,6 +289,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         t,
         onConfirmed: async (confirmedProviderId) => {
             setShowLoginModal(false);
+            if (confirmedProviderId === 'netease' && typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent(XUAN_LOGIN_CONFIRMED_EVENT));
+            }
             if (onlineProviderPlatform) {
                 await onlineProviderPlatform.completeLogin(confirmedProviderId);
             } else {
@@ -303,6 +307,22 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         setShowLoginModal(true);
         await startQrLogin(providerId);
     };
+
+    // 音质门槛等处通过全局事件唤起扫码登录弹窗（AccountTab 在播放面板，
+    // 登录弹窗在首页，二者不在同一组件树）。
+    // 两条触发路径：① 首页已挂载时响应事件；② 首页此前被卸载（播放页），
+    // 切回首页后挂载时消费 pending 标记。consumePendingLogin 先删标记再返回，
+    // 保证只弹一次。
+    const initLoginRef = useRef(initLogin);
+    initLoginRef.current = initLogin;
+    useEffect(() => {
+        const trigger = () => {
+            if (consumePendingLogin()) void initLoginRef.current('netease');
+        };
+        trigger(); // 挂载即检查（覆盖从播放页切回首页的情形）
+        window.addEventListener(XUAN_REQUEST_LOGIN_EVENT, trigger);
+        return () => window.removeEventListener(XUAN_REQUEST_LOGIN_EVENT, trigger);
+    }, []);
 
     // Online provider collection details
     const [favoriteAlbums, setFavoriteAlbums] = useState<ProviderCollection[]>([]);

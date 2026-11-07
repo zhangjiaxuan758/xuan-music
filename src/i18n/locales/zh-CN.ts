@@ -387,7 +387,9 @@ export default {
     "qualityExhigh": "极高",
     "qualityLossless": "无损",
     "qualityHires": "Hi-Res",
-    "vipOnly": "VIP 专属"
+    "vipOnly": "VIP 专属",
+    "qualityNeedLogin": "请先登录网易云账号后切换音质",
+    "qualityNeedVip": "该音质为网易云会员专享，开通会员后可使用"
   },
   "playlist": {
     "tracks": "首歌曲",
@@ -418,7 +420,7 @@ export default {
     "searchPlaceholder": "搜索音乐...",
     "songs": "首",
     "loginTitle": "使用网易云APP扫码",
-    "loginNote": "打开网易云音乐APP > 发现 > 扫一扫",
+    "loginNote": "打开网易云音乐APP扫一扫，在手机上确认登录（移动端授权）",
     "loginTitleKugou": "使用酷狗音乐APP扫码",
     "loginNoteKugou": "打开酷狗音乐APP扫描二维码",
     "switchOnlineProvider": "切换在线音乐平台",

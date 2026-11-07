@@ -1,12 +1,19 @@
 // 小轩音乐：真实生效的 Web Audio 音效链。
-// source -> lowshelf(超低音) -> peaking(低频冲击) -> peaking(人声) -> highshelf(空气感)
-//        -> 压缩器(防削波) -> gain -> analyser -> destination
-// 预设名称对齐网易云「鲸云音效」常见档位；参数为公开可调的 BiquadFilter，不是假开关。
 //
-// 关于「一股糊味」：手机扬声器根本放不出 60Hz，硬抬 14dB 只会让功放削波，
-// 听感就是发闷、发糊、破音。这里把增益收敛到小喇叭能承受的范围，
-// 并在链路末端加 DynamicsCompressor：低频推上去后由压缩器吃掉峰值，
-// 既有厚度，又不会糊成一团。
+// 关于「从网易云官方 API 调用音效」：网易云官方并没有对外提供音效处理接口，
+// 「鲸云音效」是客户端本地 DSP（官方 App 内部实现，参数未公开），服务端只下发
+// 原始音频流。所以音效只能在本端用 Web Audio 复刻同类型的均衡 / 谐波曲线。
+//
+// 关于「用了跟没用一样」：手机扬声器基本放不出 80Hz 以下，只抬高 60~70Hz 的
+// 低架，无论给多少 dB 都听不见；再叠加强压缩器把峰值压回去，就等于没有变化。
+// 这里改用两条真正能在手机外放上被听见的手段：
+//   1) 把低频工作点上移到 110~160Hz（小喇叭能重放的范围），拉出可闻的厚度差；
+//   2) 加入轻微软饱和产生低次谐波（Missing Fundamental 原理，与手机 BassBoost /
+//      Waves MaxxBass 同类），让听感上「有低音」而不必真的推出 60Hz 的声压。
+// 同时预留 headroom + 温和限幅，避免上一版那种「一股糊味 / 破音」。
+//
+// 音质（标准 / 极高 / 无损 / Hi-Res）不走这里，是官方
+// /api/song/enhance/player/url/v1 的 level 参数直连，属于 100% 官方码率流。
 export type XuanEffectPreset = 'off' | 'superBass' | 'bassBoost' | 'clearVocal' | 'live' | 'electronic' | 'classical';
 
 export interface XuanAudioEffectSettings {
@@ -54,83 +61,124 @@ export const writeXuanAudioEffects = (settings: XuanAudioEffectSettings) => {
 };
 
 interface EffectNodes {
+    pre: GainNode;
     sub: BiquadFilterNode;
     punch: BiquadFilterNode;
     mid: BiquadFilterNode;
     high: BiquadFilterNode;
+    shaper: WaveShaperNode;
     compressor: DynamicsCompressorNode;
     makeup: GainNode;
-    input: BiquadFilterNode;
+    input: GainNode;
 }
-let activeNodes: EffectNodes | null = null;
 
-// [sub 70Hz, punch 180Hz, mid 1.2kHz, high 8kHz]，单位 dB（强度 8 时）。
-// 数值刻意保守：超过 +7dB 的低频在手机外放上只会削波发糊，而不是更「重」。
-const PRESET_DB: Record<XuanEffectPreset, [number, number, number, number]> = {
-    off:        [0, 0, 0, 0],
-    superBass:  [5.5, 2.2, -1.5, 0.5],
-    bassBoost:  [3.5, 1.4, 0, 0.5],
-    clearVocal: [-2.0, -1.0, 3.5, 2.5],
-    live:       [2.0, 1.0, 2.0, 3.0],
-    electronic: [4.5, 2.2, -2.0, 3.5],
-    classical:  [1.5, 0.5, 1.5, 3.0],
+type PresetCurve = {
+    /** [低架110Hz, 低频峰160Hz, 中频1.1kHz, 高架7kHz]，强度 8 时的 dB */
+    eq: [number, number, number, number];
+    /** 谐波饱和度 0..1 */
+    drive: number;
+};
+
+const PRESETS: Record<XuanEffectPreset, PresetCurve> = {
+    off:        { eq: [0, 0, 0, 0], drive: 0 },
+    superBass:  { eq: [9, 6, -1.5, 1.5], drive: 0.42 },
+    bassBoost:  { eq: [6, 3.5, 0, 1], drive: 0.22 },
+    clearVocal: { eq: [-2.5, -1, 5, 3.5], drive: 0.05 },
+    live:       { eq: [3, 2, 2, 4.5], drive: 0.14 },
+    electronic: { eq: [8, 3.5, -3, 6], drive: 0.3 },
+    classical:  { eq: [1, 0.5, 1, 5], drive: 0.04 },
+};
+
+let activeNodes: EffectNodes | null = null;
+let activeContext: AudioContext | null = null;
+
+/** 生成软饱和曲线：k 越大谐波越明显，但始终保持单调、不硬削波。 */
+const makeSaturationCurve = (k: number): Float32Array<ArrayBuffer> => {
+    const n = 1024;
+    // 显式用 ArrayBuffer 构造，避免 lib.dom 新版里 Float32Array<ArrayBufferLike>
+    // 不能赋给 WaveShaperNode.curve(Float32Array<ArrayBuffer>) 的类型报错。
+    const curve = new Float32Array(new ArrayBuffer(n * Float32Array.BYTES_PER_ELEMENT));
+    const amount = Math.max(0, Math.min(1, k)) * 2.2;
+    for (let i = 0; i < n; i += 1) {
+        const x = (i * 2) / (n - 1) - 1;
+        // tanh 型软饱和，输出归一化到 [-1, 1]
+        curve[i] = Math.tanh(x * (1 + amount)) / Math.tanh(1 + amount);
+    }
+    return curve;
 };
 
 const applySettings = (settings: XuanAudioEffectSettings) => {
-    if (!activeNodes) return;
+    const nodes = activeNodes;
+    if (!nodes) return;
     const active = settings.enabled && settings.preset !== 'off';
-    // 强度 0..10 映射到 0..1.2，避免把预设推到削波区。
-    const scale = active ? Math.min(1.2, Math.max(0, settings.intensity) / 8) : 0;
-    const [sub, punch, mid, high] = PRESET_DB[settings.preset] || PRESET_DB.superBass;
+    const scale = active ? Math.min(1.3, Math.max(0, settings.intensity) / 8) : 0;
+    const curve = PRESETS[settings.preset] || PRESETS.superBass;
     try {
-        activeNodes.sub.gain.value = sub * scale;
-        activeNodes.punch.gain.value = punch * scale;
-        activeNodes.mid.gain.value = mid * scale;
-        activeNodes.high.gain.value = high * scale;
-        // 不做额外增益：多出来的增益只会把信号直接推爆。
-        activeNodes.makeup.gain.value = 1;
+        nodes.sub.gain.value = curve.eq[0] * scale;
+        nodes.punch.gain.value = curve.eq[1] * scale;
+        nodes.mid.gain.value = curve.eq[2] * scale;
+        nodes.high.gain.value = curve.eq[3] * scale;
+        nodes.shaper.curve = makeSaturationCurve(curve.drive * scale);
+        nodes.shaper.oversample = '2x';
+        // 开音效时留 0.86 的 headroom、末端补 1.16 回来：
+        // 既给低频提升腾出余量，又保证开关前后响度接近（听出「音色」而非单纯「音量」变化）。
+        nodes.pre.gain.value = active ? 0.86 : 1;
+        nodes.makeup.gain.value = active ? 1.16 : 1;
     } catch { /* ignore */ }
 };
 
 if (typeof window !== 'undefined') {
     window.addEventListener(XUAN_EFFECT_CHANGE_EVENT, (event: Event) => {
         applySettings((event as CustomEvent<XuanAudioEffectSettings>).detail || readXuanAudioEffects());
+        // 切换音效时若上下文被系统挂起，立即恢复，否则参数改了也听不到。
+        if (activeContext && activeContext.state === 'suspended') {
+            void activeContext.resume().catch(() => { });
+        }
     });
 }
 
 /** 在音频链路中插入真实滤波链，返回应连接到 source 的输入节点。 */
 export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode): AudioNode => {
+    const pre = ctx.createGain();
+    pre.gain.value = 1;
+
     const sub = ctx.createBiquadFilter();
-    sub.type = 'lowshelf'; sub.frequency.value = 70; sub.Q.value = 0.6;
+    sub.type = 'lowshelf'; sub.frequency.value = 110; sub.Q.value = 0.7;
 
     const punch = ctx.createBiquadFilter();
-    punch.type = 'peaking'; punch.frequency.value = 180; punch.Q.value = 0.7;
+    punch.type = 'peaking'; punch.frequency.value = 160; punch.Q.value = 0.9;
 
     const mid = ctx.createBiquadFilter();
-    mid.type = 'peaking'; mid.frequency.value = 1200; mid.Q.value = 0.7;
+    mid.type = 'peaking'; mid.frequency.value = 1100; mid.Q.value = 0.8;
 
     const high = ctx.createBiquadFilter();
-    high.type = 'highshelf'; high.frequency.value = 8000;
+    high.type = 'highshelf'; high.frequency.value = 7000;
 
-    // 压缩器：低频提升后的峰值在这里被压住，避免功放削波产生「糊味」。
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeSaturationCurve(0);
+    shaper.oversample = '2x';
+
     const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -10;
-    compressor.knee.value = 12;
-    compressor.ratio.value = 3.5;
-    compressor.attack.value = 0.003;
-    compressor.release.value = 0.25;
+    compressor.threshold.value = -6;
+    compressor.knee.value = 8;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.004;
+    compressor.release.value = 0.2;
 
     const makeup = ctx.createGain();
     makeup.gain.value = 1;
 
+    pre.connect(sub);
     sub.connect(punch);
     punch.connect(mid);
     mid.connect(high);
-    high.connect(compressor);
+    high.connect(shaper);
+    shaper.connect(compressor);
     compressor.connect(makeup);
     makeup.connect(downstream);
 
-    activeNodes = { sub, punch, mid, high, compressor, makeup, input: sub };
+    activeNodes = { pre, sub, punch, mid, high, shaper, compressor, makeup, input: pre };
+    activeContext = ctx;
     applySettings(readXuanAudioEffects());
-    return sub;
+    return pre;
 };

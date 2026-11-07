@@ -285,6 +285,13 @@ const SectionTabs: React.FC<Pick<VisPlaygroundSettingsPanelProps, 'activeSection
                     key={section}
                     type="button"
                     onClick={() => onSectionChange(section)}
+                    onPointerDown={(event) => {
+                        event.stopPropagation();
+                        // Android WebView 上 click 偶发被吞，pointerdown 直接切换分区，
+                        // 与 onClick 设同值是幂等的，不会重复渲染。
+                        onSectionChange(section);
+                    }}
+                    data-xuan-control
                     className="rounded-full border px-3 py-1.5 text-sm transition-all"
                     style={{
                         ...getAccentOptionStyle(active, theme, isDaylight),
@@ -425,7 +432,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
     ), [t]);
 
     return (
-        <div className="min-h-0 flex flex-col gap-4">
+        <div data-xuan-vispanel className="min-h-0 flex flex-col gap-4">
             <SectionTabs
                 activeSection={activeSection}
                 onSectionChange={onSectionChange}
@@ -434,7 +441,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                 isDaylight={isDaylight}
             />
 
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4">
+            <div data-xuan-scroll className="flex-1 min-h-0 overflow-y-auto overscroll-contain xuan-hide-scrollbar pr-1 space-y-4">
                 {activeSection === 'common' && (
                     <div className="rounded-[24px] border p-4 space-y-4" style={{ backgroundColor: controlCardBg, borderColor: colorWithAlpha(theme.secondaryColor, 0.16) }}>
                         <div className="flex items-start justify-between gap-3">

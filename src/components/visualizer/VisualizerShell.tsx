@@ -22,6 +22,7 @@ type VisualizerShellSharedProps = Pick<
     | 'paused'
     | 'onBack'
     | 'alwaysShowBackButton'
+    | 'isPlayerChromeHidden'
 >;
 
 interface VisualizerShellProps {
@@ -51,6 +52,8 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedBackgroundStaticMode = sharedProps?.backgroundStaticMode ?? false;
     const resolvedPaused = sharedProps?.paused ?? false;
     const resolvedOnBack = sharedProps?.onBack;
+    // 双击进入沉浸模式后，返回按钮与其它 UI 一起隐藏；再双击退出时恢复。
+    const isImmersive = Boolean(sharedProps?.isPlayerChromeHidden);
 
     /* eslint-disable-next-line no-warning-comments -- @AI: KEEP THIS EXACTLY AS IS */
     // @note Version Control: Project Folia version 0.5.27-a16525c
@@ -74,7 +77,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 opacity: resolvedVisualizerOpacity,
             }}
         >
-            {resolvedOnBack && (
+            {resolvedOnBack && !isImmersive && (
                 <button
                     type="button"
                     aria-label={t('ui.backToHome')}

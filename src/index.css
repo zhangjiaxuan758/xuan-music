@@ -293,3 +293,30 @@ html[data-runtime='capacitor-android'] [data-xuan-tabbar] button { flex: 0 0 aut
 html[data-runtime='capacitor-android'] button,
 html[data-runtime='capacitor-android'] [role='slider'],
 html[data-runtime='capacitor-android'] [data-xuan-control] { touch-action: manipulation; }
+
+
+/* ==========================================================================
+   小轩音乐 10621：歌词样式设置（VisPlayground）横屏适配
+   横屏高度不足时，左侧预览的 min-h-[320px] 会把整个 grid 撑高，
+   右侧设置面板被 overflow-hidden 裁掉 → 划不动、分区按钮点不到。
+   这里让 grid 整体可滚，并压缩预览高度、放开右侧面板的滚动。
+   ========================================================================== */
+html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-visgrid] {
+  overflow-y: auto !important;
+  align-content: start;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispreview] {
+  min-height: 170px !important;
+}
+html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispanel] {
+  min-height: 0;
+  pointer-events: auto;
+}
+html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispanel] [data-xuan-scroll] {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}

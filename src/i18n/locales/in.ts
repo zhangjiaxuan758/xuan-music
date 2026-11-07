@@ -371,7 +371,9 @@ export default {
     "qualityExhigh": "Sangat Tinggi",
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
-    "vipOnly": "Hanya VIP"
+    "vipOnly": "Hanya VIP",
+    "qualityNeedLogin": "Masuk ke NetEase Cloud Music untuk mengubah kualitas",
+    "qualityNeedVip": "Kualitas ini khusus anggota VIP"
   },
   "playlist": {
     "tracks": "Trek",

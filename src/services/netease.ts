@@ -194,7 +194,9 @@ const detailIdsAsJson = (raw: string): string =>
 const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   '/login/qr/key': {
     path: '/api/login/qrcode/unikey',
-    data: () => ({ type: 3 }),
+    // type=3 是「网易云音乐 PC 桌面客户端」授权，手机 App 扫码后会显示
+    // 「登录 PC 版」。type=1 为官方网页 / 移动端授权，手机端不再识别为 PC。
+    data: () => ({ type: 1 }),
     wrap: (body) => ({ code: 200, data: { unikey: String(body?.unikey || '') } }),
   },
   '/login/qr/create': {
@@ -208,7 +210,7 @@ const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   },
   '/login/qr/check': {
     path: '/api/login/qrcode/client/login',
-    data: (q) => ({ key: str(q, 'key'), type: 3 }),
+    data: (q) => ({ key: str(q, 'key'), type: 1 }),
     wrap: (body, _q, setCookie) => {
       const result: any = { ...body };
       if (setCookie) result.cookie = mergeCookie(readLoginCookie(), setCookie);

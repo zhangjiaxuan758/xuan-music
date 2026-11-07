@@ -94,11 +94,14 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     };
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (disabled) return;
         e.stopPropagation();
+        // 歌曲刚开播时 stage 处于激活态，controlsDisabled 会短暂为 true。
+        // 展开（放大）是纯 UI 交互，不应被禁用；先通知外层展开，
+        // seek 本身仍受 disabled 限制，避免「刚播放点进度条没反应」。
+        onSeekStart?.();
+        if (disabled) return;
         isDraggingRef.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
-        onSeekStart?.();
         seekToClientX(e.clientX);
     };
 

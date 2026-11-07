@@ -19,6 +19,7 @@ import {
     type NeteasePlaybackRestriction,
 } from './playbackRestriction';
 import { writeProviderSessionValue } from './providerStorage';
+import { isNeteaseLoggedIn } from './audioQualityGate';
 
 // src/services/onlineMusic/neteaseProvider.ts
 
@@ -271,12 +272,16 @@ export const neteaseProvider: OnlineMusicProvider = {
         async getAudioSource(song, quality) {
             // 未登录时高音质档位经常返回空链接。依次降级到较低档位重试，
             // 只要任一档位能拿到可播放地址就立即返回，避免「点击播放没反应」。
-            const levels = [...new Set([
-                mapQuality(quality),
-                'exhigh',
-                'higher',
-                'standard',
-            ].filter(Boolean))];
+            // 未登录时只用官方 standard(128k)，不再越级请求高码率；
+            // 登录后才按用户选择依次降级重试。
+            const levels = isNeteaseLoggedIn()
+                ? [...new Set([
+                    mapQuality(quality),
+                    'exhigh',
+                    'higher',
+                    'standard',
+                ].filter(Boolean))]
+                : ['standard'];
             // 官方 eapi 对会员 / 付费 / 无版权歌曲返回的是结构化受限字段
             // （code / fee / freeTrialPrivilege 等），并不下发中文提示文案。
             // 这里保留这些字段，交给 UI 按网易云官方口径分类提示，
