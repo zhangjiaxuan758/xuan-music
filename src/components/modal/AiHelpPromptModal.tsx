@@ -88,7 +88,7 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                         exit={{ scale: 0.96, opacity: 0, y: 8 }}
                         transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
                         onClick={(event) => event.stopPropagation()}
-                        className={`${bgClass} ${textPrimary} relative w-full max-w-lg overflow-hidden rounded-[1.5rem] border p-6 shadow-2xl`}
+                        className={`${bgClass} ${textPrimary} relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-[1.5rem] border p-6 shadow-2xl`}
                     >
                         <div
                             className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full blur-[72px]"
@@ -102,9 +102,9 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                             <CloseIcon size={18} />
                         </button>
 
-                        <div className="relative z-10 space-y-5">
+                        <div data-xuan-scroll className="relative z-10 flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain xuan-hide-scrollbar pr-1">
                             {/* 小轩音乐自编文档：内容围绕本应用，仓库链接指向 xuan-music。 */}
-                            <div className="max-h-[38vh] overflow-y-auto xuan-hide-scrollbar rounded-xl p-1">
+                            <div className="rounded-xl p-1">
                                 <XuanHelpDoc isDaylight={isDaylight} />
                             </div>
                             <div className="pr-10">
@@ -143,7 +143,7 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                             </div>
 
                             <div className={`rounded-xl border p-4 ${panelBg}`}>
-                                <pre className={`max-h-52 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 ${textSecondary}`}>
+                                <pre className={`whitespace-pre-wrap break-words text-xs leading-5 ${textSecondary}`}>
                                     {prompt}
                                 </pre>
                             </div>

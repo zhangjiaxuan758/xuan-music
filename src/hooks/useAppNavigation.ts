@@ -293,7 +293,10 @@ export function useAppNavigation() {
 
     const closeSearchView = () => {
         const searchReturnView = useSearchNavigationStore.getState().searchReturnView;
-        useSearchNavigationStore.getState().hideSearchOverlay();
+        const searchStore = useSearchNavigationStore.getState();
+        searchStore.hideSearchOverlay();
+        // 退出搜索页即清空输入框，回到其他页面不再带着上次的关键词。
+        searchStore.setSearchQuery('');
         pushNavigationState({
             view: searchReturnView,
             replace: true,

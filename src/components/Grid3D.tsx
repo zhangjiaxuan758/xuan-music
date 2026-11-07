@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { pushSearchHistory } from '../services/searchHistory';
 import { useTranslation } from 'react-i18next';
 import { Search, Loader2, Settings } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -321,7 +322,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         (homeViewTab === 'devRecommend' && loadingDevRecommend)
         || (isChartTab && loadingChart);
 
-    // Load favorite albums and recommendations
+    // 收藏专辑 / 电台：只在切换账号时重新取。
     useEffect(() => {
         if (homeViewTab === 'albums' && favoriteAlbums.length === 0 && activeUser) {
             fetchFavoriteAlbums();
@@ -329,30 +330,52 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         if (homeViewTab === 'radio' && radioItems.length === 0 && activeUser) {
             fetchRadioItems();
         }
-        // 开发者推荐不依赖登录态：官方 /api/v3/song/detail 匿名即可返回，失败也有本地兜底。
-        if (homeViewTab === 'devRecommend' && devRecommendSongs.length === 0 && !loadingDevRecommend) {
-            setLoadingDevRecommend(true);
-            getDeveloperRecommendedSongs()
-                .then(songs => setDevRecommendSongs(songs))
-                .finally(() => setLoadingDevRecommend(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeProviderId, activeUser?.id]);
+
+    // 开发者推荐：只在切到该 tab 时拉一次，避免 loading/长度进依赖导致无限重启。
+    useEffect(() => {
+        if (homeViewTab !== 'devRecommend') return;
+        if (devRecommendSongs.length > 0) return;
+        let cancelled = false;
+        setLoadingDevRecommend(true);
+        getDeveloperRecommendedSongs()
+            .then(songs => { if (!cancelled) setDevRecommendSongs(songs); })
+            .finally(() => { if (!cancelled) setLoadingDevRecommend(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [homeViewTab, activeProviderId]);
+
+    // 热歌榜 / 古风榜：每次进入都从官方实时拉取，但同一次进入只拉一次。
+    // 之前的依赖里带了 loadingChart，请求开始/结束都会重新触发 effect，
+    // 形成「请求 → setState → 再请求」的死循环，界面上就是一直闪。
+    const chartFetchRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!isChartTab) {
+            chartFetchRef.current = null;
+            return;
         }
-        // 热歌榜 / 古风榜：每次进入都从网易云官方实时重新拉取。
-        if (isChartTab && !loadingChart) {
-            const chartId = homeViewTab as XuanChartId;
-            setLoadingChart(true);
-            getXuanChartSongs(chartId)
-                .then(songs => setChartSongs(prev => ({ ...prev, [chartId]: songs })))
-                .finally(() => setLoadingChart(false));
-        }
-        // 缓存：读取本地已缓存的歌曲（播放时由缓存层写入）。
-        if (isCacheTab) {
-            try {
-                const raw = localStorage.getItem('xuan_cached_media_songs');
-                const parsed = raw ? JSON.parse(raw) : [];
-                setCacheSongs(Array.isArray(parsed) ? parsed : []);
-            } catch { setCacheSongs([]); }
-        }
-    }, [activeProviderId, activeUser, homeViewTab, isChartTab, isCacheTab, devRecommendSongs.length, loadingDevRecommend, loadingChart]);
+        const chartId = homeViewTab as XuanChartId;
+        if (chartFetchRef.current === chartId) return;
+        chartFetchRef.current = chartId;
+        let cancelled = false;
+        setLoadingChart(true);
+        getXuanChartSongs(chartId)
+            .then(songs => { if (!cancelled) setChartSongs(prev => ({ ...prev, [chartId]: songs })); })
+            .finally(() => { if (!cancelled) setLoadingChart(false); });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [homeViewTab, isChartTab]);
+
+    // 缓存：读取本地已缓存的歌曲（播放时由缓存层写入）。
+    useEffect(() => {
+        if (!isCacheTab) return;
+        try {
+            const raw = localStorage.getItem('xuan_cached_media_songs');
+            const parsed = raw ? JSON.parse(raw) : [];
+            setCacheSongs(Array.isArray(parsed) ? parsed : []);
+        } catch { setCacheSongs([]); }
+    }, [isCacheTab]);
 
     useEffect(() => {
         setFavoriteAlbums([]);
@@ -585,6 +608,8 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         e?.preventDefault();
         const query = searchQuery.trim();
         if (!query) return;
+        // 首页搜索同样写入历史，避免只有搜索页提交才记录。
+        pushSearchHistory(query);
 
         const searchSource = isOnlineTab ? activeProviderId : resolveSearchSource(homeViewTab);
         const didSearch = await submitSearch({
@@ -708,7 +733,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     </div>
 
                     {/* Center Tab Switcher */}
-                    <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-1 min-w-0" data-xuan-tabbar>
+                    <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-3 min-w-0" data-xuan-tabbar>
                         <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full origin-center max-w-full overflow-x-auto xuan-hide-scrollbar`}>
                             <div className="inline-flex items-center gap-0">
                                 {[
@@ -756,7 +781,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     </div>
 
                     {/* Right Search Bar */}
-                    <div className="flex justify-end order-2 md:order-none">
+                    <div className="flex justify-end order-2 md:order-none md:col-start-3">
                         <form onSubmit={handleSearch} className="relative w-full md:w-56 transition-all focus-within:md:w-72">
                             {isSearchingActive ? (
                                 <Loader2 className="absolute left-3 top-1/2 w-4 h-4 animate-spin opacity-40 -mt-2" />

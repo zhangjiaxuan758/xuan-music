@@ -4,7 +4,7 @@ import {
     readXuanAudioEffects,
     writeXuanAudioEffects,
     XUAN_EFFECT_PRESETS,
-    type XuanAudioEffectSettings,
+    type XuanAudioEffectSettings as XuanAudioEffectSettingsValue,
     type XuanEffectPreset,
 } from '../../../services/audioEffects';
 
@@ -12,7 +12,7 @@ type Props = { isDaylight: boolean; theme?: { secondaryColor?: string } };
 
 /** 真实生效的音效设置：开关、预设（超重低音等）、强度。写入后立即作用于 Web Audio 滤波链。 */
 export const XuanAudioEffectSettings: React.FC<Props> = ({ isDaylight, theme }) => {
-    const [settings, setSettings] = useState<XuanAudioEffectSettings>(() => readXuanAudioEffects());
+    const [settings, setSettings] = useState<XuanAudioEffectSettingsValue>(() => readXuanAudioEffects());
     useEffect(() => { writeXuanAudioEffects(settings); }, [settings]);
     const card = isDaylight ? 'border-black/10 bg-black/[0.03]' : 'border-white/10 bg-white/[0.04]';
     const accent = theme?.secondaryColor || 'rgba(114,119,134,1)';

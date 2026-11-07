@@ -17,6 +17,26 @@ import {
     NeteasePlaybackRestrictionError,
     type NeteasePlaybackRestriction,
 } from './onlineMusic/playbackRestriction';
+import { readProviderSessionValue } from './onlineMusic/providerStorage';
+
+/**
+ * 播放前的元数据级判定：网易云返回的 fee 字段本身就能说明这首是不是会员 / 付费曲。
+ * 之前只有搜索入口会在解析音频时拿到 code=-110 才提示，榜单 / 开发者推荐 / 缓存
+ * 这些入口在未登录时会被官方降级成低码率试听甚至空地址，于是「点了没反应也不提示」。
+ * 这里先按 fee 统一判一次，所有入口共用同一套官方口径文案。
+ */
+const describeSongMetadataRestriction = (song: SongResult): NeteasePlaybackRestriction | null => {
+    const fee = Number((song as any)?.fee ?? (song as any)?.privilege?.fee ?? 0);
+    if (!Number.isFinite(fee) || fee <= 0) return null;
+
+    const hasSession = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
+    // 已登录时不在这里拦：会员能听完整版、买过专辑的人也能听，
+    // 由官方接口返回的 code=-110 再决定提示，避免误伤。
+    if (hasSession) return null;
+    if (fee === 4) return { reason: 'paid-album', fee };
+    if (fee === 1 || fee === 8) return { reason: 'vip', fee };
+    return null;
+};
 
 export async function loadOnlineSongAudioSource(
     song: SongResult,
@@ -36,6 +56,11 @@ export async function loadOnlineSongAudioSource(
 
     if (prefetched?.audioUrl && prefetched.audioUrl !== 'CACHED_IN_DB' && isUrlValid(prefetched.audioUrlFetchedAt)) {
         return { kind: 'ok', audioSrc: prefetched.audioUrl };
+    }
+
+    const metadataRestriction = describeSongMetadataRestriction(song);
+    if (metadataRestriction) {
+        return { kind: 'restricted', restriction: metadataRestriction };
     }
 
     let source = null;

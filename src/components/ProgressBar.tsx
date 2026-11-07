@@ -34,10 +34,9 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => {
     const progressRef = useRef<HTMLDivElement>(null);
     const timeRef = useRef<HTMLSpanElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const trackRef = useRef<HTMLDivElement>(null);
     const isDraggingRef = useRef(false);
     const lastDisplayedSecondRef = useRef<number | null>(null);
-    const lastInputSecondRef = useRef<number | null>(null);
 
     // Keeps continuous progress on the compositor while coarse values update only when needed.
     const updateUI = useCallback((value: number, force = false, syncInput = true, bypassDrag = false) => {
@@ -58,10 +57,6 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
             lastDisplayedSecondRef.current = displayedSecond;
         }
 
-        if (syncInput && inputRef.current && (force || lastInputSecondRef.current !== displayedSecond)) {
-            inputRef.current.value = clampedValue.toString();
-            lastInputSecondRef.current = displayedSecond;
-        }
     }, [duration]);
 
     useLayoutEffect(() => {
@@ -72,38 +67,58 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         updateUI(latest);
     });
 
-    const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
-        if (disabled) {
-            return;
-        }
-        const val = Number(e.currentTarget.value);
-        updateUI(val, false, false, true);
-        // iOS Safari bug: 点击的时候触发 pointerup 事件会早于 input 事件，导致点击失效
-        // chromium：pointerdown → input → pointerup
-        // iOS Safari：pointerdown → pointerup → input （why?）
-        // 这里补偿一次 onSeek 进行适配
-        if (!isDraggingRef.current) {
-            onSeek(val);
-        }
+    // 直接按手指/鼠标的横向位置换算进度：点一下立刻跳，不用等 input 事件，
+    // 也不会再出现「点好几次 / 等半天」的情况。拖动时按帧节流。
+    const seekToClientX = useCallback((clientX: number) => {
+        const track = trackRef.current;
+        if (!track || duration <= 0) return;
+        const rect = track.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        const nextTime = ratio * duration;
+        updateUI(nextTime, false, true, true);
+        onSeek(nextTime);
+    }, [duration, onSeek, updateUI]);
+
+    const rafSeekRef = useRef<number | null>(null);
+    const pendingSeekXRef = useRef<number | null>(null);
+
+    const scheduleSeek = (clientX: number) => {
+        pendingSeekXRef.current = clientX;
+        if (rafSeekRef.current != null) return;
+        rafSeekRef.current = requestAnimationFrame(() => {
+            rafSeekRef.current = null;
+            const x = pendingSeekXRef.current;
+            if (x != null) seekToClientX(x);
+        });
     };
 
-    const handleSeekStart = (e: React.PointerEvent<HTMLInputElement>) => {
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (disabled) return;
+        e.stopPropagation();
         isDraggingRef.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
         onSeekStart?.();
+        seekToClientX(e.clientX);
     };
 
-    const handleSeekEnd = (e: React.PointerEvent<HTMLInputElement>) => {
-        if (disabled) return;
-        const value = Number(e.currentTarget.value);
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingRef.current || disabled) return;
+        scheduleSeek(e.clientX);
+    };
+
+    const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingRef.current) return;
         isDraggingRef.current = false;
-        updateUI(value, true);
-        onSeek(value);
+        seekToClientX(e.clientX);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
         onSeekEnd?.();
     };
 
-    const handleSeekCancel = () => {
+    const cancelDrag = () => {
+        if (!isDraggingRef.current) return;
         isDraggingRef.current = false;
         updateUI(currentTime.get(), true);
         onSeekEnd?.();
@@ -119,32 +134,30 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                 00:00
             </span>
 
-            <div className={`relative h-1.5 flex-1 rounded-sm md:rounded-full flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} style={{ backgroundColor: trackColor }}>
-                <div
-                    ref={progressRef}
-                    className="absolute top-0 left-0 h-full rounded-sm md:rounded-full pointer-events-none"
-                    style={{
-                        width: '100%',
-                        backgroundColor: primaryColor,
-                        clipPath: 'inset(0 100% 0 0 round 999px)',
-                        willChange: 'clip-path',
-                    }}
-                />
-                <input
-                    ref={inputRef}
-                    type="range"
-                    min={0} max={duration || 100}
-                    step={0.1}
-                    disabled={disabled}
-                    defaultValue={0}
-                    onPointerDown={handleSeekStart}
-                    onPointerUp={handleSeekEnd}
-                    onPointerCancel={handleSeekCancel}
-                    onInput={handleInput}
-                    onChange={() => { }} // React requires this
-                    onClick={(e) => e.stopPropagation()}
-                    className={`absolute inset-0 w-full h-full opacity-0 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                />
+            <div
+                ref={trackRef}
+                data-xuan-control
+                data-xuan-no-double
+                data-xuan-progress
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={cancelDrag}
+                className={`relative flex-1 h-8 flex items-center select-none touch-none ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                style={{ touchAction: 'none' }}
+            >
+                <div className="relative w-full h-2 rounded-full" style={{ backgroundColor: trackColor }}>
+                    <div
+                        ref={progressRef}
+                        className="absolute top-0 left-0 h-full rounded-full pointer-events-none"
+                        style={{
+                            width: '100%',
+                            backgroundColor: primaryColor,
+                            clipPath: 'inset(0 100% 0 0 round 999px)',
+                            willChange: 'clip-path',
+                        }}
+                    />
+                </div>
             </div>
 
             <span className="text-[10px] font-mono font-medium opacity-60 w-8" style={{ color: secondaryColor }}>

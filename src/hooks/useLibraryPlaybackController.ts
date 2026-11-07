@@ -28,6 +28,7 @@ import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { omni } from '../services/onlineMusic/omni';
+import { readProviderSessionValue } from '../services/onlineMusic/providerStorage';
 import { getProviderSongMetadata } from '../services/onlineMusic/songMetadata';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { getSongCacheWithLegacyMigration } from '../services/onlineMusic/resourceCache';

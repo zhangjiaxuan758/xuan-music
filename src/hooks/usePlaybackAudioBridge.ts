@@ -94,6 +94,13 @@ export function usePlaybackAudioBridge({
             analyser.connect(ctx.destination);
             sourceRef.current = source;
             syncOutputGain(getTargetPlaybackVolume(), 0);
+
+            // Android WebView 里的 AudioContext 常从 suspended 起步，
+            // 不 resume 的话整条滤波链等于没接上（听感上就是「音效没效果」）。
+            const resumeContext = () => { void ctx.resume().catch(() => { }); };
+            resumeContext();
+            audioRef.current.addEventListener('play', resumeContext);
+            audioRef.current.addEventListener('pointerdown', resumeContext);
         } catch (error) {
             console.error('Audio Context Setup Failed:', error);
         }

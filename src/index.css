@@ -241,13 +241,9 @@ html[data-runtime='capacitor-android'] [class*='overflow-auto']::-webkit-scrollb
   height: 0;
 }
 
-/* 6) 弹窗 / 设置面板 / 长列表：带 max-h 且被 overflow-hidden 裁掉的容器，
-      在横屏高度不足时改为可纵向滚动，保证底部的开关、按钮都能滑到。 */
-html[data-runtime='capacitor-android'] [class*='max-h-'][class*='overflow-hidden'] {
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
+/* 6) 注意：这里原本把「max-h + overflow-hidden」的弹窗外壳也改成可滚动，
+      结果和弹窗内部的滚动区形成嵌套滚动——滑到底之后手势被外层接管，
+      再往上滑就「滑不动」了。现在只保留内部单一滚动区，外壳继续裁剪。 */
 html[data-runtime='capacitor-android'] .fixed.inset-0 > * {
   max-height: 100%;
 }
@@ -276,7 +272,16 @@ html[data-runtime='capacitor-android'] [class*='overflow-y-auto'] {
   touch-action: pan-y;
   padding-bottom: 24px !important;
 }
-html[data-runtime='capacitor-android'] [class*='overflow-hidden'] { touch-action: pan-y; }
+
+/* 关键修复：以前这里给所有 overflow-hidden 容器加了 touch-action: pan-y，
+   而首页 3D 卡片轨道正好在这样一个祖先里，导致横滑手势被浏览器直接吃掉
+   （表现就是「划不动、只能点」）。这里改为只对轨道本身放开横向平移。 */
+html[data-runtime='capacitor-android'] [data-xuan-slider],
+html[data-runtime='capacitor-android'] .xuan-slider-scroll {
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* 顶部 tab 胶囊与右侧搜索框分行显示，互不遮挡；tab 过多时横向可滚。 */
 html[data-runtime='capacitor-android'] [data-xuan-header-grid] { gap: 6px 12px !important; }

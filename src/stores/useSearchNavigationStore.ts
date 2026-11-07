@@ -186,7 +186,8 @@ const getInitialHomeViewTab = (): HomeViewTab => {
 
 export const useSearchNavigationStore = create<SearchNavigationState>((set, get) => ({
     homeViewTab: getInitialHomeViewTab(),
-    searchQuery: (() => { try { return localStorage.getItem('xuan_search_query') || ''; } catch { return ''; } })(),
+    // 搜索框内容只保留在「本次搜索页」内：退出搜索页即清空，不再跨页面留存。
+    searchQuery: '',
     searchSourceTab: 'netease',
     searchResults: null,
     searchReturnView: 'home',
@@ -208,7 +209,6 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         set({ homeViewTab: resolvedTab });
     },
     setSearchQuery: (query) => {
-        try { localStorage.setItem('xuan_search_query', query); } catch { /* ignore */ }
         set({ searchQuery: query });
     },
     setSearchScrollTop: (scrollTop) => set(state => {

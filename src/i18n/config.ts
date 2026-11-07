@@ -139,9 +139,9 @@ export const applyAppLanguagePreference = async (
   }
 
   const nextLanguage = preference === 'system' ? detectSystemLanguage() : preference;
-  await i18n.changeLanguage(nextLanguage);
+  await i18n.changeLanguage(nextLanguage as string);
   if (typeof window !== 'undefined') {
-    await window.electron?.setAppLocale?.(nextLanguage);
+    await (window.electron as { setAppLocale?: (locale: string) => Promise<void> } | undefined)?.setAppLocale?.(nextLanguage);
   }
   return nextLanguage;
 };

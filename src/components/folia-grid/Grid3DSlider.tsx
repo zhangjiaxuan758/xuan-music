@@ -184,7 +184,13 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
     const coverSize = useCompactMetrics
         ? (isDesktopWidth ? 208 : 192)
         : (isDesktopWidth ? (isUltraDesktop ? 360 : isLargeDesktop ? 312 : 218) : 224);
-    const edgePadding = Math.max(0, (containerSize.width - coverSize) / 2);
+    // 横屏高度有限：封面按可视高度收缩，保证「封面 + 标题 + 底部曲名」整块完整可见，
+    // 而不是被 flex 容器裁掉下半截。
+    const fittedCoverSize = Math.max(
+        112,
+        Math.min(coverSize, containerSize.height > 0 ? containerSize.height - (hasFloatingPlayer ? 190 : 210) : coverSize),
+    );
+    const edgePadding = Math.max(0, (containerSize.width - fittedCoverSize) / 2);
 
     const safeFocusedIndex = clampFocusedIndex(focusedIndex, items.length);
     const itemsSignature = useMemo(() => items.map(item => item.id).join(','), [items]);
@@ -644,19 +650,19 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                 }`}
                 style={{ touchAction: 'pan-x pan-y' }}
             >
-                <div className="flex gap-12" style={{ paddingInline: edgePadding }}>
+                <div className="flex gap-5 md:gap-10" style={{ paddingInline: edgePadding }}>
                     {isLoading ? (
                         Array.from({ length: 5 }).map((_, index) => (
                             <div key={`skeleton-${index}`} className="shrink-0 pointer-events-none select-none">
                                 {grid3dCardStyle === 'image' ? (
                                     <div
                                         className="aspect-square rounded-2xl animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 border border-white/5 shadow-inner"
-                                        style={{ width: coverSize, height: coverSize }}
+                                        style={{ width: fittedCoverSize, height: fittedCoverSize }}
                                     />
                                 ) : (
                                     <div
                                         className="rounded-xl border border-white/5 p-4 flex flex-col items-center backdrop-blur-md shadow-lg"
-                                        style={{ width: coverSize }}
+                                        style={{ width: fittedCoverSize }}
                                     >
                                         <div className="w-full aspect-square rounded-lg animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 mb-4" />
                                         <div className="w-full text-left pt-2 space-y-2">
@@ -695,7 +701,7 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                             className={`aspect-square rounded-2xl overflow-hidden shadow-2xl relative border border-white/10 ${
                                                 isFocused ? 'ring-2 ring-white/30' : ''
                                             }`}
-                                            style={{ width: coverSize, height: coverSize }}
+                                            style={{ width: fittedCoverSize, height: fittedCoverSize }}
                                         >
                                             {item.coverUrl && loadedIndices.has(index) ? (
                                                 <img src={item.coverUrl} alt={typeof item.name === 'string' ? item.name : ''} loading="lazy" decoding="async" className="w-full h-full object-cover pointer-events-none select-none" />
@@ -709,7 +715,7 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                     ) : (
                                         <div
                                             className="rounded-xl border p-4 flex flex-col items-center backdrop-blur-md shadow-lg hover:shadow-2xl theme-polaroid-card"
-                                            style={{ width: coverSize }}
+                                            style={{ width: fittedCoverSize }}
                                         >
                                             <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-800/20 relative shadow-inner mb-4 flex items-center justify-center">
                                                 {item.coverUrl && loadedIndices.has(index) ? (

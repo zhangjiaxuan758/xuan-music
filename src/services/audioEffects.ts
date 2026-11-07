@@ -48,27 +48,41 @@ export const writeXuanAudioEffects = (settings: XuanAudioEffectSettings) => {
     }
 };
 
-interface EffectNodes { low: BiquadFilterNode; mid: BiquadFilterNode; high: BiquadFilterNode; input: BiquadFilterNode; }
+interface EffectNodes {
+    sub: BiquadFilterNode;
+    punch: BiquadFilterNode;
+    mid: BiquadFilterNode;
+    high: BiquadFilterNode;
+    makeup: GainNode;
+    input: BiquadFilterNode;
+}
 let activeNodes: EffectNodes | null = null;
 
-const PRESET_DB: Record<XuanEffectPreset, [number, number, number]> = {
-    off:        [0, 0, 0],
-    superBass:  [12, -1, 1],
-    bassBoost:  [7, 0, 1],
-    clearVocal: [-1, 4, 3],
-    live:       [3, 2, 4],
-    electronic: [9, -2, 5],
-    classical:  [2, 1, 4],
+// [sub 60Hz, punch 200Hz, mid 1kHz, high 9kHz]，单位 dB（强度 8 时）。
+// 手机外放对 60Hz 几乎无感，所以额外抬 200Hz 让「超重低音」在扬声器上也听得出来；
+// 戴耳机时 60Hz 的低架会给出真正的下潜。
+const PRESET_DB: Record<XuanEffectPreset, [number, number, number, number]> = {
+    off:        [0, 0, 0, 0],
+    superBass:  [14, 8, -2, 1],
+    bassBoost:  [8, 5, 0, 1],
+    clearVocal: [-3, -1, 5, 4],
+    live:       [3, 2, 3, 5],
+    electronic: [11, 6, -3, 6],
+    classical:  [2, 1, 2, 5],
 };
 
 const applySettings = (settings: XuanAudioEffectSettings) => {
     if (!activeNodes) return;
-    const scale = settings.enabled && settings.preset !== 'off' ? settings.intensity / 8 : 0;
-    const [l, m, h] = PRESET_DB[settings.preset] || PRESET_DB.superBass;
+    const active = settings.enabled && settings.preset !== 'off';
+    const scale = active ? Math.max(0, settings.intensity) / 8 : 0;
+    const [sub, punch, mid, high] = PRESET_DB[settings.preset] || PRESET_DB.superBass;
     try {
-        activeNodes.low.gain.value = l * scale;
-        activeNodes.mid.gain.value = m * scale;
-        activeNodes.high.gain.value = h * scale;
+        activeNodes.sub.gain.value = sub * scale;
+        activeNodes.punch.gain.value = punch * scale;
+        activeNodes.mid.gain.value = mid * scale;
+        activeNodes.high.gain.value = high * scale;
+        // 打开音效时给一点补偿增益，避免「加了均衡反而更小声」的错觉。
+        activeNodes.makeup.gain.value = active ? 1 + 0.06 * scale : 1;
     } catch { /* ignore */ }
 };
 
@@ -80,14 +94,28 @@ if (typeof window !== 'undefined') {
 
 /** 在音频链路中插入真实滤波链，返回应连接到 source 的输入节点。 */
 export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode): AudioNode => {
-    const low = ctx.createBiquadFilter();
-    low.type = 'lowshelf'; low.frequency.value = 90;
+    const sub = ctx.createBiquadFilter();
+    sub.type = 'lowshelf'; sub.frequency.value = 60; sub.Q.value = 0.7;
+
+    const punch = ctx.createBiquadFilter();
+    punch.type = 'peaking'; punch.frequency.value = 200; punch.Q.value = 0.9;
+
     const mid = ctx.createBiquadFilter();
     mid.type = 'peaking'; mid.frequency.value = 1000; mid.Q.value = 0.8;
+
     const high = ctx.createBiquadFilter();
     high.type = 'highshelf'; high.frequency.value = 9000;
-    low.connect(mid); mid.connect(high); high.connect(downstream);
-    activeNodes = { low, mid, high, input: low };
+
+    const makeup = ctx.createGain();
+    makeup.gain.value = 1;
+
+    sub.connect(punch);
+    punch.connect(mid);
+    mid.connect(high);
+    high.connect(makeup);
+    makeup.connect(downstream);
+
+    activeNodes = { sub, punch, mid, high, makeup, input: sub };
     applySettings(readXuanAudioEffects());
-    return low;
+    return sub;
 };

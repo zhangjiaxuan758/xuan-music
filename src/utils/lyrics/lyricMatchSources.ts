@@ -24,7 +24,9 @@ export type LyricMatchFetchResult = {
     matchedLyricsProviderPlatform?: AmllDbPlatform;
 };
 
-export const LYRIC_MATCH_SOURCES: readonly LyricProviderSource[] = ['netease', 'amll', 'qq', 'kugou'];
+// 小轩音乐：只保留网易云。QQ / 酷狗 / AMLL 在界面上已全部移除，
+// 歌词来源与「歌词匹配优先级」都只有网易云一项。
+export const LYRIC_MATCH_SOURCES: readonly LyricProviderSource[] = ['netease'];
 
 export const sourceSupportsManualSearch = (source: LyricProviderSource): boolean => source !== 'amll';
 
