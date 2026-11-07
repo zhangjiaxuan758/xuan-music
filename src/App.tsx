@@ -2494,7 +2494,7 @@ export default function App() {
         handleSetVolume,
         handleToggleMute,
         showOpenPanelCloseButton,
-        hideToggleButton: isPlayerChromeHidden || shouldHidePlayerRightPanelButton,
+        hideToggleButton: shouldHidePlayerRightPanelButton,
         activePlaybackContext,
         isNowPlayingControlDisabled,
         openSettings,

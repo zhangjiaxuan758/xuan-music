@@ -389,7 +389,7 @@ export default {
     "qualityLossless": "無損",
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP 专属",
-    "qualityNeedLogin": "請先登入網易雲帳號後切換音質",
+    "qualityNeedLogin": "請先登入網易雲帳號後再切換音質",
     "qualityNeedVip": "該音質為網易雲會員專享，開通會員後可使用"
   },
   "playlist": {

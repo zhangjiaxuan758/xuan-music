@@ -372,7 +372,7 @@ export default {
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
     "vipOnly": "Hanya VIP",
-    "qualityNeedLogin": "Masuk ke NetEase Cloud Music untuk mengubah kualitas",
+    "qualityNeedLogin": "Silakan masuk ke NetEase Cloud Music terlebih dahulu",
     "qualityNeedVip": "Kualitas ini khusus anggota VIP"
   },
   "playlist": {

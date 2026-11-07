@@ -302,21 +302,32 @@ html[data-runtime='capacitor-android'] [data-xuan-control] { touch-action: manip
    这里让 grid 整体可滚，并压缩预览高度、放开右侧面板的滚动。
    ========================================================================== */
 html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-visgrid] {
+  /* 唯一滚动容器：右侧面板不再自己滚，内容全部展开由 grid 统一滚动，
+     避免嵌套滚动被外层 overflow-hidden 裁掉导致「划不到底」。 */
   overflow-y: auto !important;
-  align-content: start;
+  overflow-x: hidden !important;
+  align-content: start !important;
+  grid-auto-rows: min-content;
+  max-height: calc(100dvh - 88px);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  padding-bottom: 24px;
 }
 html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispreview] {
   min-height: 170px !important;
 }
 html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispanel] {
   min-height: 0;
+  max-height: none !important;
+  overflow: visible !important;
   pointer-events: auto;
 }
 html[data-runtime='capacitor-android'] [data-xuan-visplayground] [data-xuan-vispanel] [data-xuan-scroll] {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+  flex: none !important;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  overscroll-behavior: contain;
 }

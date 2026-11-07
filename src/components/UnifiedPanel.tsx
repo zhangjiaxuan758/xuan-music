@@ -978,6 +978,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
+                        data-xuan-no-double="true"
                         className="pointer-events-auto fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}

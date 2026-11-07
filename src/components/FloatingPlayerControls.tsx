@@ -69,14 +69,20 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     const glassBgCollapsed = isDaylight ? 'bg-white/40 border border-white/20 shadow-lg hover:bg-white/50' : 'bg-black/20 border border-white/5 hover:bg-black/30';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)';
 
+    // 展开态（放大）/ 收起态（缩小）。收起是原来的窄条，展开是全宽带控件行。
     const [isHovered, setIsHovered] = useState(false);
-    // 拖动中：锁住展开态，且忽略外部点击，避免时间线一滑就收起。
+    // 拖动中锁住展开态，松手后仍保持展开，直到点外部才收起。
     const [isScrubbing, setIsScrubbing] = useState(false);
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
     const isScrubbingRef = useRef(false);
+    const isTimelineOpenRef = useRef(false);
     const expandTimeoutRef = useRef<number | null>(null);
     const collapseTimeoutRef = useRef<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    const showExpanded = isHovered || isScrubbing;
+
+    useEffect(() => { isTimelineOpenRef.current = isTimelineOpen; }, [isTimelineOpen]);
 
     const beginScrub = useCallback(() => {
         isScrubbingRef.current = true;
@@ -93,27 +99,27 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
         setIsScrubbing(false);
     }, []);
 
-    // 进度条改成唯一常驻实例：展开/收起只切换上方控件行，不再卸载 ProgressBar。
-    // 之前用 showExpanded ? <ExpandedView> : <CollapsedView> 会把拖动中的进度条整块重挂，
-    // pointer capture 丢失，表现为「时间线一滑就消失、又缩回小条」且点外部收不回去。
-    // 同时去掉「暂停时强制展开」：它会让点外部收起失效（showExpanded 恒为 true）。
-    const showExpanded = isHovered || isScrubbing;
-
-    // 触屏没有 hover：展开后手指移开不会触发 mouseleave，控件会一直停在展开态。
-    // 监听全局 pointerdown，点到控件外面就收起；拖动过程中不收。
+    // 点外部收起：监听常驻（不随展开态反复挂载），保证「点空白总能缩小」。
+    // 关键修复：时间线弹窗在 containerRef 之外，以前它内部的一次 pointerdown
+    // 会被当成「点外部」→ 直接 setIsTimelineOpen(false) 关掉弹窗 + 收起控件，
+    // 表现就是「点开之后一滑，那个就消失、按钮还缩小」。这里明确排除。
     useEffect(() => {
-        if (!showExpanded) return;
         const handleOutsidePointerDown = (event: PointerEvent) => {
-            if (isScrubbingRef.current) return;
+            if (isScrubbingRef.current || isTimelineOpenRef.current) return;
+            const target = event.target;
+            if (!(target instanceof Node)) return;
             const el = containerRef.current;
-            if (!el) return;
-            if (event.target instanceof Node && el.contains(event.target)) return;
+            if (el && el.contains(target)) return;
+            if (target instanceof Element) {
+                if (target.closest('[data-xuan-timeline]')) return;
+                // 其它全屏浮层（设置 / 帮助等）也不该把控件收掉
+                if (target.closest('[data-folia-keyboard-window]')) return;
+            }
             setIsHovered(false);
-            setIsTimelineOpen(false);
         };
         document.addEventListener('pointerdown', handleOutsidePointerDown, true);
         return () => document.removeEventListener('pointerdown', handleOutsidePointerDown, true);
-    }, [showExpanded]);
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -151,10 +157,15 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
         }, HOVER_COLLAPSE_DELAY_MS);
     };
 
-    const handleClick = () => {
+    const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        // 按钮、进度条由各自处理，别抢它们的点击
+        if ((event.target as Element)?.closest?.('button, [data-xuan-progress]')) return;
         if (currentView === 'home') {
             onNavigateToPlayer();
+            return;
         }
+        // 播放页点外壳空白处：切换放大 / 缩小
+        setIsHovered(prev => !prev);
     };
 
     if (hideControlBar) {
@@ -164,6 +175,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     return (
         <>
             <motion.div
+                data-xuan-no-double="true"
                 className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-60 w-full flex justify-center transition-all duration-300 pointer-events-none
                     ${currentView === 'home' ? 'max-w-[calc(100vw-120px)] md:max-w-lg' : 'max-w-lg px-4'}`}
                 initial={false}
@@ -174,7 +186,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                 }}
                 transition={{ duration: 0.26, ease: 'easeOut' }}
                 style={{ pointerEvents: isHidden ? 'none' : 'auto' }}
-                onClick={(e) => e.stopPropagation()}
             >
                 <div
                     ref={containerRef}
@@ -190,9 +201,9 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         layout
                         transition={{ layout: CONTROL_LAYOUT_SPRING }}
                         onClick={handleClick}
-                        // 外壳宽度在两态下保持一致，避免展开时轨道宽度变化导致拖动坐标跳变。
-                        className={`backdrop-blur-3xl shadow-2xl overflow-hidden cursor-pointer rounded-full relative transition-colors duration-300 w-full
-                            ${showExpanded ? `p-3 ${glassBgExpanded}` : `px-4 py-2 ${glassBgCollapsed}`}`}
+                        // 恢复原版视觉：收起是窄条、展开是全宽，放大/缩小一眼可辨。
+                        className={`backdrop-blur-3xl shadow-2xl overflow-hidden cursor-pointer rounded-full relative transition-colors duration-300
+                            ${showExpanded ? `p-3 ${glassBgExpanded} w-full` : `px-4 py-2 ${glassBgCollapsed} w-[85%] md:w-[70%]`}`}
                     >
                         <div className="w-full flex flex-col gap-1.5">
                             <AnimatePresence initial={false}>
@@ -223,7 +234,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                                 )}
                             </AnimatePresence>
 
-                            {/* 唯一的进度条实例：展开/收起都不卸载，pointer capture 全程保留。 */}
+                            {/* 唯一的进度条实例：展开/收起都不卸载，pointer capture 全程保留，
+                                所以滑动时间线不会「一滑就消失 + 缩回小条」。 */}
                             <div className="w-full px-2">
                                 <ProgressBar
                                     currentTime={currentTime}

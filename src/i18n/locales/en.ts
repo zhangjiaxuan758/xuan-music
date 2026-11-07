@@ -387,7 +387,7 @@ export default {
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP Only",
-    "qualityNeedLogin": "Sign in to NetEase Cloud Music to change audio quality",
+    "qualityNeedLogin": "Please sign in to NetEase Cloud Music first",
     "qualityNeedVip": "This quality is for VIP members only"
   },
   "playlist": {

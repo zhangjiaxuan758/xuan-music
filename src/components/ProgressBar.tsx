@@ -107,7 +107,9 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         }
         isDraggingRef.current = true;
         e.currentTarget.setPointerCapture(e.pointerId);
-        seekToClientX(e.clientX);
+        // 点下时外层会从「窄条」展开成「全宽」，轨道宽度此刻还在变化。
+        // 用 rAF 等布局稳定后再按最新 rect 换算，避免第一次跳转偏位。
+        scheduleSeek(e.clientX);
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {

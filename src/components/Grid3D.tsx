@@ -406,7 +406,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     useEffect(() => {
         setFavoriteAlbums([]);
         setRadioItems([]);
-        setFocusedIndex(0);
+        // [小轩音乐] 播放后返回保持当前板块位置；仅切换板块时归零。
     }, [activeProviderId, activeUser?.id]);
 
     const fetchFavoriteAlbums = async () => {

@@ -388,7 +388,7 @@ export default {
     "qualityLossless": "无损",
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP 专属",
-    "qualityNeedLogin": "请先登录网易云账号后切换音质",
+    "qualityNeedLogin": "请先登录网易云账号后再切换音质",
     "qualityNeedVip": "该音质为网易云会员专享，开通会员后可使用"
   },
   "playlist": {
