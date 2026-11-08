@@ -1,7 +1,5 @@
 import { NeteaseUser, NeteasePlaylist, NoCopyrightRecommendation, SongPrivilege, SongResult } from "../types";
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
-import md5 from 'blueimp-md5';
-import CryptoJS from 'crypto-js';
 import QRCode from 'qrcode';
 import { CapacitorHttp } from '@capacitor/core';
 
@@ -18,10 +16,9 @@ let songCopyrightRecommendationApiSupported: boolean | null = null;
 // 转发到对应 /api 业务接口。二维码由官方域名生成、播放链接由官方直返，
 // 因此不存在第三方实例机房 IP 被风控的问题。
 const OFFICIAL_HOST = 'https://music.163.com';
-// 占位符：网易云 eapi 公开协议常量。属于官方网页 JS 中可查的公开值，
-// 这里仍按脱敏惯例替换，使用前请自行填入真实值（格式见 README）。
-const EAPI_KEY = '__PLACEHOLDER_NETEASE_EAPI_KEY__';
-const EAPI_SALT = '__PLACEHOLDER_NETEASE_EAPI_SALT__';
+// 敏感信息（eapiKey / eapiSalt / 开放平台密钥）全部保存在服务端 music.jrr.lol，
+// 客户端不再持有任何密钥：所有官方请求经 /api/eapi 由服务端加密转发。
+import { eapiRequest } from './xuanServer';
 
 const DEVICE_COOKIE = 'os=android; osver=13; appver=8.10.30; versioncode=270; channel=netease; deviceId=xuanmusic-android; resolution=1920x1080;';
 const DEVICE_HEADER: Record<string, string> = {
@@ -91,25 +88,14 @@ const mergeCookie = (existing: string, incoming: string): string => {
   return Array.from(map.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
 };
 
-const eapiEncrypt = (apiPath: string, data: Record<string, unknown>): string => {
-  const text = JSON.stringify(data);
-  const digest = md5(`nobody${apiPath}use${text}md5forencrypt`);
-  const payload = `${apiPath}-${EAPI_SALT}-${text}-${EAPI_SALT}-${digest}`;
-  const key = CryptoJS.enc.Utf8.parse(EAPI_KEY);
-  const encrypted = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(payload), key, {
-    mode: CryptoJS.mode.ECB,
-    padding: CryptoJS.pad.Pkcs7,
-  });
-  return encrypted.ciphertext.toString(CryptoJS.enc.Hex).toUpperCase();
-};
-
+// eapi 加密已迁移至服务端 /api/eapi：客户端不持有任何 eAPI 密钥。
+// 这样源码可完全脱敏，网页端无跨域问题，管理端可实时轮换密钥而客户端无需升级。
 type EapiResult = { body: any; setCookie: string };
 
 // 统一走 CapacitorHttp 原生 HTTP 层：绕过 WebView 跨域、可显式携带 Cookie、
 // 并能读到原生返回的 Set-Cookie（登录态持久化所需）。
 const officialRequest = async (apiPath: string, requestData: Record<string, unknown>): Promise<EapiResult> => {
-  // 官方对同 IP 的短时间高频请求会返回 -462（风控）等瞬态错误。
-  // 一次性全量搜索会连续分页，必须在这里静默重试，否则整页结果会变空。
+  // 官方对同 IP 高频请求会返回 -462 等瞬态错误，静默重试。
   const isTransientCode = (code: unknown): boolean => {
     const value = Number(code);
     return value === -462 || value === -460 || value === -1
@@ -117,59 +103,18 @@ const officialRequest = async (apiPath: string, requestData: Record<string, unkn
   };
   const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-  const sendOnce = async (): Promise<EapiResult> => {
-  const loginCookie = readLoginCookie();
-  const csrf = getCookieValue(loginCookie, '__csrf');
-  const header: Record<string, string> = {
-    ...DEVICE_HEADER,
-    buildver: String(Date.now()).slice(0, 10),
-    __csrf: csrf,
-    requestId: `${Date.now()}.${Math.floor(Math.random() * 10000)}`,
-  };
-  for (const key of LOGIN_COOKIE_KEYS) {
-    const value = getCookieValue(loginCookie, key);
-    if (value) header[key] = value;
-  }
-
-  const data: Record<string, unknown> = { ...requestData, header };
-  if (csrf) data.csrf_token = csrf;
-
-  const params = eapiEncrypt(apiPath, data);
-  const cookieHeader = mergeCookie(DEVICE_COOKIE, loginCookie);
-
-  const response = await CapacitorHttp.request({
-    method: 'POST',
-    url: `${OFFICIAL_HOST}/eapi/${apiPath.replace(/^\/api\//, '')}`,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Cookie': cookieHeader,
-      'Referer': OFFICIAL_HOST,
-      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) NeteaseMusic/8.10.30',
-    },
-    data: `params=${params}`,
-    responseType: 'text',
-    connectTimeout: 15000,
-    readTimeout: 15000,
-  });
-
-  let body: any = response?.data;
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch { body = { code: -1, message: '官方响应解析失败' }; }
-  }
-  if (!body || typeof body !== 'object') body = { code: -1, message: '官方响应为空' };
-
-    return { body, setCookie: parseSetCookie(response?.headers) };
-  };
-
-  let result = await sendOnce();
+  // 所有官方 eapi 请求统一走服务端代理：
+  //   - 客户端不接触 eapiKey / eapiSalt，源码可完全脱敏；
+  //   - 网页端同源调用，无跨域问题；
+  //   - 管理端可实时更换服务端密钥，客户端无需升级。
+  const cookie = readLoginCookie();
+  let result = await eapiRequest(apiPath, requestData, cookie);
   for (let attempt = 0; attempt < 2 && isTransientCode(result.body?.code); attempt++) {
-    // -462 是「请求过于频繁」，退避要足够长才有机会解除风控。
     await wait(700 * (attempt + 1));
-    result = await sendOnce();
+    result = await eapiRequest(apiPath, requestData, cookie);
   }
-  return result;
+  return { body: result.body, setCookie: result.setCookie };
 };
-
 const isElectronRuntime = () => false;
 
 type Query = URLSearchParams;
@@ -236,10 +181,14 @@ const ENDPOINT_MAP: Record<string, EndpointSpec> = {
     wrap: (body) => { removeProviderSessionValue('netease', 'cookie', ['netease_cookie']); return body; },
   },
   '/like': {
-    path: '/api/radio/like',
+    path: '/api/song/like',
     data: (q) => ({ alg: 'itembased', trackId: str(q, 'id'), like: str(q, 'like') === 'true' || str(q, 'like') === '1', time: 3 }),
   },
   '/likelist': { path: '/api/song/like/get', data: (q) => ({ uid: num(q, 'uid', 0) }) },
+  '/playlist/tracks/add': {
+    path: '/api/playlist/tracks/add',
+    data: (q) => ({ pid: str(q, 'pid'), ids: idsAsJson(str(q, 'ids', '[]')), op: 'add' }),
+  },
   '/user/playlist': {
     path: '/api/user/playlist',
     data: (q) => ({ uid: num(q, 'uid', 0), limit: num(q, 'limit', 30), offset: num(q, 'offset', 0), includeVideo: true }),

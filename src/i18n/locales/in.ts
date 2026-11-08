@@ -1,4 +1,18 @@
-export default {
+  export default {
+  "effects": {
+    "title": "Efek Audio",
+    "enable": "Aktifkan efek",
+    "off": "Matikan",
+    "hint": "Berlaku real-time, lebih terasa dengan headphone",
+    "desc": "Tujuh preset kelas mastering: Super Bass / 3D Surround / Panoramik / Vokal HD / Vokal Jernih / HiFi Live / Panorama Imersif. Implementasi setara publik, bukan parameter resmi NetEase.",
+    "superBass": "Super Bass",
+    "surround3d": "3D Surround",
+    "panoramic": "Panoramik",
+    "hdVocal": "Vokal HD",
+    "clearVocal": "Vokal Jernih",
+    "hifiLive": "HiFi Live",
+    "immersive": "Imersif Panorama"
+  },
   "notifications": {
     "coverColorAdded": "Warna sampul ditambahkan",
     "coverColorDefault": "Menggunakan warna bawaan",
@@ -147,10 +161,11 @@ export default {
     "restrictedOffline": "无网络连接",
     "restrictedVip": "Lagu ini khusus anggota VIP NetEase",
     "restrictedPaidAlbum": "Lagu ini perlu membeli album digital",
-    "restrictedTrial": "Hanya pratinjau (sekitar {{seconds}} detik). Upgrade VIP untuk lagu penuh",
+    "restrictedTrial": "Hanya pratinjau ({{seconds}} detik). Upgrade VIP untuk lagu penuh",
     "restrictedNoCopyright": "Lagu ini untuk sementara tidak tersedia karena hak cipta",
     "restrictedRegion": "Lagu ini tidak tersedia di wilayah Anda",
     "restrictedGeneric": "Akun Anda tidak memiliki izin memutar lagu ini",
+    "restrictedLoginRequired": "NetEase kini mewajibkan masuk untuk memutar lagu ini: masuk dengan akun NetEase untuk mendengar pratinjau",
     "queueShuffled": "Antrean diacak",
     "queueUpdated": "Ditambahkan ke antrean",
     "copiedSongInfo": "Info lagu disalin",
@@ -373,8 +388,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "Hanya VIP",
     "qualityNeedLogin": "Silakan masuk ke NetEase Cloud Music terlebih dahulu",
-    "qualityNeedVip": "Kualitas ini khusus anggota VIP"
-  },
+    "qualityNeedVip": "Kualitas ini khusus anggota VIP",
+    "qualityHigher": "Lebih tinggi",
+    "qualitySky": "Imersif",
+    "qualityJymaster": "Master",
+    "qualityAutoHint": "Otomatis memutar kualitas tertinggi yang tersedia; bisa diganti kapan saja",
+    "qualityVipNotice": "Kualitas itu butuh VIP NetEase; dialihkan ke kualitas tertinggi yang tersedia"  },
   "playlist": {
     "tracks": "Trek",
     "plays": "Putar",

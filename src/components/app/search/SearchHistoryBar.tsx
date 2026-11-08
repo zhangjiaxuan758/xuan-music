@@ -107,13 +107,7 @@ export const SearchHistoryBar: React.FC<Props> = ({ isDaylight, onPick }) => {
                         >
                             删除
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => setConfirmTarget(null)}
-                            className={`rounded-xl px-2.5 py-1.5 text-[11px] font-medium transition-colors ${isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}
-                        >
-                            取消
-                        </button>
+                        {/* 对齐正版交互：长按只弹「删除」，点其他位置气泡自动消失（外层 pointerdown 已处理） */}
                     </div>
                 </div>,
                 document.body,

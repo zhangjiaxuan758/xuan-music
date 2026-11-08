@@ -1,6 +1,20 @@
 
 
-export default {
+  export default {
+  "effects": {
+    "title": "音效",
+    "enable": "开启音效",
+    "off": "关闭音效",
+    "hint": "音效实时生效，戴耳机更明显",
+    "desc": "七种母带级预设：超重低音 / 3D 环绕 / 全景环绕 / 高解析人声 / 清澈人声 / HiFi 现场 / 震撼全景。参数为公开等效实现，非网易云官方参数。",
+    "superBass": "超重低音",
+    "surround3d": "3D 环绕",
+    "panoramic": "全景环绕",
+    "hdVocal": "高解析人声",
+    "clearVocal": "清澈人声",
+    "hifiLive": "HiFi 现场",
+    "immersive": "震撼全景"
+  },
   "notifications": {
     "coverColorAdded": "添加封面色彩",
     "coverColorDefault": "使用默认色彩",
@@ -155,10 +169,11 @@ export default {
     "restrictedOffline": "无网络连接",
     "restrictedVip": "该歌曲为网易云会员专享，开通会员后可畅听完整版",
     "restrictedPaidAlbum": "该歌曲需购买数字专辑后收听",
-    "restrictedTrial": "当前为非会员试听片段（约 {{seconds}} 秒），开通会员后可畅听完整版",
+    "restrictedTrial": "当前为非会员试听片段（{{seconds}} 秒），开通会员后可畅听完整版",
     "restrictedNoCopyright": "因版权方要求，该歌曲暂不支持播放",
     "restrictedRegion": "因版权或地区限制，该歌曲暂不可播放",
     "restrictedGeneric": "当前账号暂无该歌曲的播放权限",
+    "restrictedLoginRequired": "网易云已要求登录后才能播放该歌曲：登录网易云账号即可试听会员歌曲",
     "queueShuffled": "播放队列已打乱",
     "queueUpdated": "已添加到播放队列",
     "copiedSongInfo": "已复制歌曲信息",
@@ -389,8 +404,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP 专属",
     "qualityNeedLogin": "请先登录网易云账号后再切换音质",
-    "qualityNeedVip": "该音质为网易云会员专享，开通会员后可使用"
-  },
+    "qualityNeedVip": "该音质为网易云会员专享，开通会员后可使用",
+    "qualityHigher": "较高",
+    "qualitySky": "沉浸环绕",
+    "qualityJymaster": "超清母带",
+    "qualityAutoHint": "自动播放当前账号可用的最高音质，可随时往下切换",
+    "qualityVipNotice": "该音质需要网易云会员，已自动切换到当前可用的最高音质"  },
   "playlist": {
     "tracks": "首歌曲",
     "plays": "次播放",

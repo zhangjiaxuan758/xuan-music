@@ -13,8 +13,12 @@ import com.getcapacitor.BridgeActivity
 class MainActivity : BridgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 注册状态栏媒体通知 / 在线更新原生插件
+        registerPlugin(XuanNativePlugin::class.java)
         super.onCreate(savedInstanceState)
         applyFullscreen()
+        applyMaxRefreshRate()
+        requestNotificationPermission()
 
         // Capacitor 的 StatusBar / SplashScreen 插件会在 WebView 初始化后调整窗口属性，
         // 延迟补两次，确保系统栏不会重新露出、挖孔区域不会被重新加黑边。
@@ -47,6 +51,36 @@ class MainActivity : BridgeActivity() {
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    /** 默认使用设备最高刷新率（同分辨率下选最高刷新的显示模式） */
+    private fun applyMaxRefreshRate() {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display
+            else @Suppress("DEPRECATION") windowManager.defaultDisplay
+            val current = display?.mode ?: return
+            val best = display.supportedModes
+                .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+                .maxByOrNull { it.refreshRate } ?: return
+            val lp = window.attributes
+            lp.preferredDisplayModeId = best.modeId
+            window.attributes = lp
+        } catch (_: Throwable) { }
+    }
+
+    /** Android 13+ 通知权限：常驻媒体通知必须在抽屉可见 */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 20261108
+                )
+            } catch (_: Throwable) { }
         }
     }
 

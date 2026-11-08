@@ -34,8 +34,8 @@ const describeSongMetadataRestriction = (song: SongResult): NeteasePlaybackRestr
     const hasSession = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
     // 已登录交给官方判断：会员能听完整版，过期会员/买过专辑的情况官方会回试听或 -110。
     if (hasSession) return null;
-    if (fee === 4) return { reason: 'paid-album', fee };
-    if (fee === 1 || fee === 8) return { reason: 'vip', fee };
+    // 未登录也放行真实取链：服务端可配置「试听账号 Cookie」代取官方试听链接，
+    // 会员歌能听到 30 秒试听；只有官方确实不下发 URL 时才提示需要登录。
     return null;
 };
 

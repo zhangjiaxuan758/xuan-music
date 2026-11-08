@@ -1,6 +1,20 @@
 
 
-export default {
+  export default {
+  "effects": {
+    "title": "Audio Effects",
+    "enable": "Enable effects",
+    "off": "Off",
+    "hint": "Applies in real time; best with headphones",
+    "desc": "Seven mastering-grade presets: Super Bass / 3D Surround / Panoramic / HD Vocal / Clear Vocal / HiFi Live / Immersive Panorama. Public-domain equivalents, not official NetEase parameters.",
+    "superBass": "Super Bass",
+    "surround3d": "3D Surround",
+    "panoramic": "Panoramic",
+    "hdVocal": "HD Vocal",
+    "clearVocal": "Clear Vocal",
+    "hifiLive": "HiFi Live",
+    "immersive": "Immersive"
+  },
   "notifications": {
     "coverColorAdded": "Cover color added",
     "coverColorDefault": "Using default color",
@@ -155,10 +169,11 @@ export default {
     "restrictedOffline": "无网络连接",
     "restrictedVip": "This song is for NetEase VIP members only",
     "restrictedPaidAlbum": "This song requires purchasing the digital album",
-    "restrictedTrial": "Preview only (about {{seconds}}s). Upgrade to VIP for the full song",
+    "restrictedTrial": "Preview only ({{seconds}}s). Upgrade to VIP for the full song",
     "restrictedNoCopyright": "This song is temporarily unavailable due to copyright restrictions",
     "restrictedRegion": "This song is unavailable in your region",
     "restrictedGeneric": "Your account does not have permission to play this song",
+    "restrictedLoginRequired": "NetEase now requires sign-in for this song: log in with your NetEase account to play the preview",
     "queueShuffled": "Queue shuffled",
     "queueUpdated": "Added to queue",
     "copiedSongInfo": "Copied song info",
@@ -388,8 +403,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP Only",
     "qualityNeedLogin": "Please sign in to NetEase Cloud Music first",
-    "qualityNeedVip": "This quality is for VIP members only"
-  },
+    "qualityNeedVip": "This quality is for VIP members only",
+    "qualityHigher": "Higher",
+    "qualitySky": "Immersive",
+    "qualityJymaster": "Master",
+    "qualityAutoHint": "Automatically plays the highest quality your account allows; switch down anytime",
+    "qualityVipNotice": "That quality needs a NetEase VIP; switched to the highest available quality"  },
   "playlist": {
     "tracks": "Tracks",
     "plays": "Plays",

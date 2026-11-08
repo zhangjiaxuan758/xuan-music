@@ -16,10 +16,27 @@ export const XUAN_LOGIN_CONFIRMED_EVENT = 'xuan:netease-login-confirmed';
 
 export type QualityTier = 'free' | 'login' | 'vip';
 
-/** 各档位需要的身份等级：极高需登录，无损 / Hi-Res 需会员。 */
+/**
+ * 官方全部档位（从高到低）。用户要求：网易云官方 API 支持的所有音质都要能切换。
+ * 官方 level：jymaster 超清母带 / sky 沉浸环绕声 / hires Hi-Res / lossless 无损 /
+ * exhigh 极高320k / higher 较高192k / standard 标准128k。
+ */
+export const FULL_QUALITY_CHAIN: AudioQualityPreference[] = [
+    'jymaster', 'sky', 'hires', 'lossless', 'exhigh', 'higher', 'standard',
+];
+
+/** 旧档位值兼容：'high' 是早期"极高320k"的内部写法。 */
+export const normalizeQuality = (quality: AudioQualityPreference): AudioQualityPreference =>
+    quality === 'high' ? 'exhigh' : quality;
+
+/**
+ * 各档位需要的身份等级（公开口径，来自官方取链接口对账号权限的普遍行为）：
+ * 标准 / 较高：免费可用；极高：需登录；无损 / Hi-Res / 沉浸环绕 / 超清母带：需会员。
+ */
 export const qualityTier = (quality: AudioQualityPreference): QualityTier => {
-    if (quality === 'lossless' || quality === 'hires') return 'vip';
-    if (quality === 'high') return 'login';
+    const q = normalizeQuality(quality);
+    if (q === 'lossless' || q === 'hires' || q === 'sky' || q === 'jymaster') return 'vip';
+    if (q === 'exhigh') return 'login';
     return 'free';
 };
 
@@ -75,31 +92,48 @@ export const consumePendingLogin = (): boolean => {
 
 /**
  * 实际取链时使用的音质：即使设置里残留了高音质，未登录也强制标准，
- * 非会员强制把无损 / Hi-Res 回落到极高，避免"显示极高、实际拿到降级流"。
+/**
+ * 实际取链时的档位：
+ * - 未登录：标准（官方匿名口径；能播到的最高也就是它）。
+ * - 登录后按用户选择；会员专享档（无损/Hi-Res/沉浸/母带）在非会员时回落到极高，
+ *   由取链降级链 + 官方 br 兜底，保证"永远拿到该账号能播的最高档"。
  */
 export const resolveEffectiveQuality = (
     quality: AudioQualityPreference,
     isVip: boolean,
 ): AudioQualityPreference => {
     if (!isNeteaseLoggedIn()) return 'standard';
-    if ((quality === 'lossless' || quality === 'hires') && !isVip) return 'high';
-    return quality;
+    const q = normalizeQuality(quality);
+    if (qualityTier(q) === 'vip' && !isVip) return 'exhigh';
+    return q;
 };
 
 /**
- * 用官方 /api/song/enhance/player/url/v1 返回的码率(br)反推实际拿到的音质。
- * 官方会按账号权限把无损 / Hi-Res 降级成 320k / 192k / 128k，
- * 所以「当前用上了哪一档」必须以官方返回的 br 为准，不能用用户点选的档位。
- * 官方码率：128001 标准 / 192001 较高 / 320001 极高 / 999001 无损 / 1999001 Hi-Res。
+ * 用官方 /api/song/enhance/player/url/v1 的返回反推实际音质。
+ * 优先用官方 level 字段（standard/higher/exhigh/lossless/hires/sky/jymaster），
+ * 缺失时按码率(br)反推。官方会按账号权限降级，所以"当前用上了哪一档"
+ * 必须以官方返回为准，不能用用户点选的档位。
  */
-export const qualityFromOfficialBr = (
+export const qualityFromOfficialLevel = (
+    level: unknown,
     br: unknown,
     requested: AudioQualityPreference,
 ): AudioQualityPreference => {
+    const lv = String(level || '');
+    const ALL: AudioQualityPreference[] = [
+        'standard', 'higher', 'exhigh', 'lossless', 'hires', 'sky', 'jymaster',
+    ];
+    if (ALL.includes(lv as AudioQualityPreference)) return lv as AudioQualityPreference;
     const rate = Number(br);
-    if (!Number.isFinite(rate) || rate <= 0) return requested;
+    if (!Number.isFinite(rate) || rate <= 0) return normalizeQuality(requested);
     if (rate >= 1900000) return 'hires';
     if (rate >= 900000) return 'lossless';
-    if (rate >= 190000) return 'high';
+    if (rate >= 190000) return 'exhigh';
     return 'standard';
 };
+
+/** @deprecated 兼容旧调用（br 反推）。 */
+export const qualityFromOfficialBr = (
+    br: unknown,
+    requested: AudioQualityPreference,
+): AudioQualityPreference => qualityFromOfficialLevel(null, br, requested);

@@ -8,13 +8,14 @@
 // 再由 UI 层用本地化文案展示；官方若给了 message / typeDesc 则原样优先展示。
 
 export type NeteaseRestrictionReason =
-    | 'offline'       // 无网络连接
-    | 'vip'           // 会员专享
-    | 'paid-album'    // 付费数字专辑
-    | 'trial'         // 仅试听片段
-    | 'no-copyright'  // 版权方下架 / 无版权
-    | 'region'        // 版权或地区限制
-    | 'unknown';      // 其它官方受限
+    | 'offline'        // 无网络连接
+    | 'vip'            // 会员专享
+    | 'paid-album'     // 付费数字专辑
+    | 'trial'          // 仅试听片段
+    | 'no-copyright'   // 版权方下架 / 无版权
+    | 'region'         // 版权或地区限制
+    | 'login-required' // 未登录：网易云已不再向匿名请求下发播放/试听链接
+    | 'unknown';       // 其它官方受限
 
 export interface NeteasePlaybackRestriction {
     reason: NeteaseRestrictionReason;

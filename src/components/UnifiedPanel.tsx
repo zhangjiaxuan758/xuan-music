@@ -983,7 +983,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         transition={{ duration: 0.15, ease: 'easeOut' }}
                         style={{ pointerEvents: hideToggleButton ? 'none' : 'auto' }}
                         data-xuan-no-double="true"
-                        className="fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
+                        className="fixed bottom-8 right-0 z-[60] pr-4 group w-20 flex justify-end"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}
                         <div className={`relative w-12 h-12 transition-all duration-300 transform ${toggleButtonMotionClass}`}>

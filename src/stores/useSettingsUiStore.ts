@@ -20,6 +20,7 @@ import i18n from '../i18n/config';
 import type { AudioQualityPreference } from '../types/onlineMusic';
 import { readProviderSessionValue } from '../services/onlineMusic/providerStorage';
 import { XUAN_LOGIN_CONFIRMED_EVENT } from '../services/onlineMusic/audioQualityGate';
+import { getServerConfig } from '../services/xuanServer';
 import {
     normalizePinnedCommandIds,
     readPinnedCommandIds,
@@ -129,9 +130,24 @@ const readStoredDisableHomeDynamicBackground = (): boolean => {
     return false;
 };
 
-export const resolveStoredAudioQuality = (saved: string | null): AudioQuality => (
-    saved === 'standard' || saved === 'lossless' || saved === 'hires' ? saved : 'high'
-);
+/** 官方全部档位（含旧值 'high' 兼容）；默认极高（登录免费可用的最高档）。 */
+const ALL_QUALITIES: readonly string[] = [
+    'standard', 'higher', 'exhigh', 'high', 'lossless', 'hires', 'sky', 'jymaster',
+];
+
+export const resolveStoredAudioQuality = (saved: string | null): AudioQuality => {
+    if (saved && ALL_QUALITIES.includes(saved)) {
+        return (saved === 'high' ? 'exhigh' : saved) as AudioQuality;
+    }
+    // 无本地偏好时采用管理端下发的默认档（quality.default），再退极高
+    try {
+        const remote = getServerConfig()?.quality?.default;
+        if (remote && ALL_QUALITIES.includes(remote)) {
+            return (remote === 'high' ? 'exhigh' : remote) as AudioQuality;
+        }
+    } catch { /* ignore */ }
+    return 'exhigh';
+};
 
 const readStoredAudioQuality = (): AudioQuality => {
     if (typeof window === 'undefined') {
@@ -140,9 +156,6 @@ const readStoredAudioQuality = (): AudioQuality => {
 
     const saved = localStorage.getItem('default_audio_quality');
     const quality = resolveStoredAudioQuality(saved);
-    if (saved === 'exhigh') {
-        localStorage.setItem('default_audio_quality', 'high');
-    }
     // 未登录时按网易云官方口径只用标准音质；不覆盖已保存的偏好，
     // 登录成功后由 XUAN_LOGIN_CONFIRMED_EVENT 重新读取。
     const loggedIn = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));

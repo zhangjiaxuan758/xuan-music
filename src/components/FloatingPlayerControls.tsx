@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, ChartBar } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, ChartBar, SkipBack, SkipForward } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import { PlayerState, LyricData, Theme } from '../types';
 import LyricsTimelineModal from './modal/LyricsTimelineModal';
+import { playerRemote } from '../services/playerRemote';
+import { Capacitor } from '@capacitor/core';
+import { getServerConfig } from '../services/xuanServer';
 
 const CONTROL_LAYOUT_SPRING = {
     type: 'spring' as const,
@@ -221,22 +224,44 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                                             {currentSong?.name || noTrackText}
                                         </div>
 
-                                        {/* 播放 / 暂停 */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onTogglePlay();
-                                            }}
-                                            disabled={!canTogglePlay || controlsDisabled}
-                                            className={`col-start-2 row-start-2 flex h-12 w-12 shrink-0 items-center justify-center justify-self-center rounded-full border-none text-black shadow-lg transition-transform sm:col-start-1 sm:row-start-1 sm:row-span-2 sm:justify-self-auto ${controlsDisabled ? 'cursor-not-allowed opacity-45' : 'hover:scale-105'}`}
-                                            style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
-                                        >
-                                            {playerState === PlayerState.PLAYING ? (
-                                                <Pause size={20} fill="currentColor" />
-                                            ) : (
-                                                <Play size={20} fill="currentColor" className="ml-1" />
+                                        {/* 上一首 / 播放暂停 / 下一首
+                                            客户端与网页端同一套；网页端同样显示上/下一首。
+                                            管理端可通过 config.ui.progressShowPrevNext 关闭。 */}
+                                        <div className="col-start-2 row-start-2 flex items-center justify-center gap-1 sm:col-start-1 sm:row-start-1 sm:row-span-2 sm:justify-self-auto">
+                                            {(getServerConfig()?.ui?.progressShowPrevNext !== false) && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); playerRemote.prev(); }}
+                                                    disabled={controlsDisabled}
+                                                    aria-label="上一首"
+                                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${controlsDisabled ? 'cursor-not-allowed opacity-35' : 'opacity-60 hover:opacity-100'}`}
+                                                    style={{ color: primaryColor }}
+                                                ><SkipBack size={19} fill="currentColor" /></button>
                                             )}
-                                        </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onTogglePlay();
+                                                }}
+                                                disabled={!canTogglePlay || controlsDisabled}
+                                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-none text-black shadow-lg transition-transform ${controlsDisabled ? 'cursor-not-allowed opacity-45' : 'hover:scale-105'}`}
+                                                style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
+                                            >
+                                                {playerState === PlayerState.PLAYING ? (
+                                                    <Pause size={20} fill="currentColor" />
+                                                ) : (
+                                                    <Play size={20} fill="currentColor" className="ml-1" />
+                                                )}
+                                            </button>
+                                            {(getServerConfig()?.ui?.progressShowPrevNext !== false) && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); playerRemote.next(); }}
+                                                    disabled={controlsDisabled}
+                                                    aria-label="下一首"
+                                                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${controlsDisabled ? 'cursor-not-allowed opacity-35' : 'opacity-60 hover:opacity-100'}`}
+                                                    style={{ color: primaryColor }}
+                                                ><SkipForward size={19} fill="currentColor" /></button>
+                                            )}
+                                        </div>
 
                                         {/* 循环 + 歌词时间线 */}
                                         <div className="contents sm:col-start-3 sm:row-start-1 sm:row-span-2 sm:flex sm:items-center sm:gap-1">

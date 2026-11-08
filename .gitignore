@@ -56,7 +56,7 @@ scripts/*
 docs/TODO.md
 
 
-# ==== 小轩音乐：签名 / 密钥 / 本地环境 / 构建产物 一律不入库 ====
+# 小轩音乐：签名密钥 / 含密码的说明 / 本地环境 / 构建产物 一律不入库
 *.jks
 *.keystore
 *.p12
@@ -66,14 +66,11 @@ docs/TODO.md
 .env
 .env.*
 !.env.example
-node_modules/
-dist/
-build/
 android/app/build/
 android/build/
 android/.gradle/
-android/local.properties
 android/app/src/main/assets/public/
+dist/
+build/
 *.apk
 *.aab
-*.log

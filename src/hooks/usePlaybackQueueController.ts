@@ -547,7 +547,8 @@ export function usePlaybackQueueController({
                 const isOffline = (typeof navigator !== 'undefined' && navigator.onLine === false) || r.reason === 'offline';
                 const text = isOffline
                     ? t('status.restrictedOffline', '无网络连接')
-                    : (r.reason === 'vip' && t('status.restrictedVip'))
+                    : (r.reason === 'login-required' && t('status.restrictedLoginRequired'))
+                    || (r.reason === 'vip' && t('status.restrictedVip'))
                     || (r.reason === 'paid-album' && t('status.restrictedPaidAlbum'))
                     || (r.reason === 'no-copyright' && t('status.restrictedNoCopyright'))
                     || (r.reason === 'region' && t('status.restrictedRegion'))

@@ -3,12 +3,13 @@
 // 未登录也能浏览；会员 / 付费 / 无版权歌曲沿用与搜索完全一致的官方受限提示。
 import { neteaseApi } from '../netease';
 import type { SongResult } from '../../types';
+import { getServerConfig } from '../xuanServer';
 
 export type XuanChartId = 'hotChart' | 'gufengChart';
 
 export const XUAN_CHARTS: Record<XuanChartId, { id: number; name: string }> = {
-    hotChart: { id: 3778678, name: '热歌榜' },
-    gufengChart: { id: 5059642708, name: '古风榜' },
+    hotChart: { id: (getServerConfig()?.charts?.hotChart?.playlistId ?? 3778678), name: '热歌榜' },
+    gufengChart: { id: (getServerConfig()?.charts?.gufengChart?.playlistId ?? 5059642708), name: '古风榜' },
 };
 
 const fallbackSong = (raw: any): SongResult => ({

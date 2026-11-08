@@ -653,14 +653,19 @@ const normalizeKugouSearchSongs = (rawItems: any[]): UnifiedSong[] => {
 };
 
 const qualityValue = (quality: AudioQualityPreference): string => ({
-    standard: '128', high: '320', lossless: 'flac', hires: 'high',
-})[quality];
+    standard: '128', high: '320', exhigh: '320', higher: '192',
+    lossless: 'flac', hires: 'high', sky: 'high', jymaster: 'high',
+})[quality] as string;
 
 const QUALITY_FALLBACKS: Record<AudioQualityPreference, AudioQualityPreference[]> = {
     standard: ['standard'],
+    higher: ['higher', 'standard'],
     high: ['high', 'standard'],
-    lossless: ['lossless', 'high', 'standard'],
-    hires: ['hires', 'lossless', 'high', 'standard'],
+    exhigh: ['exhigh', 'high', 'standard'],
+    lossless: ['lossless', 'exhigh', 'high', 'standard'],
+    hires: ['hires', 'lossless', 'exhigh', 'high', 'standard'],
+    sky: ['sky', 'hires', 'lossless', 'exhigh', 'high', 'standard'],
+    jymaster: ['jymaster', 'hires', 'lossless', 'exhigh', 'high', 'standard'],
 };
 
 const qualityFallbacks = (quality: AudioQualityPreference): AudioQualityPreference[] => QUALITY_FALLBACKS[quality];
