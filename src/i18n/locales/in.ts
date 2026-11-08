@@ -1,4 +1,18 @@
-export default {
+  export default {
+  "effects": {
+    "title": "Efek Audio",
+    "enable": "Aktifkan efek",
+    "off": "Matikan",
+    "hint": "Berlaku real-time, lebih terasa dengan headphone",
+    "desc": "Tujuh preset kelas mastering: Super Bass / 3D Surround / Panoramik / Vokal HD / Vokal Jernih / HiFi Live / Panorama Imersif. Implementasi setara publik, bukan parameter resmi NetEase.",
+    "superBass": "Super Bass",
+    "surround3d": "3D Surround",
+    "panoramic": "Panoramik",
+    "hdVocal": "Vokal HD",
+    "clearVocal": "Vokal Jernih",
+    "hifiLive": "HiFi Live",
+    "immersive": "Imersif Panorama"
+  },
   "notifications": {
     "coverColorAdded": "Warna sampul ditambahkan",
     "coverColorDefault": "Menggunakan warna bawaan",
@@ -374,8 +388,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "Hanya VIP",
     "qualityNeedLogin": "Silakan masuk ke NetEase Cloud Music terlebih dahulu",
-    "qualityNeedVip": "Kualitas ini khusus anggota VIP"
-  },
+    "qualityNeedVip": "Kualitas ini khusus anggota VIP",
+    "qualityHigher": "Lebih tinggi",
+    "qualitySky": "Imersif",
+    "qualityJymaster": "Master",
+    "qualityAutoHint": "Otomatis memutar kualitas tertinggi yang tersedia; bisa diganti kapan saja",
+    "qualityVipNotice": "Kualitas itu butuh VIP NetEase; dialihkan ke kualitas tertinggi yang tersedia"  },
   "playlist": {
     "tracks": "Trek",
     "plays": "Putar",

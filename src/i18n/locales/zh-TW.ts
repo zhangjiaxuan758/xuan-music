@@ -1,7 +1,21 @@
 // 小轩音乐 · 繁體中文語言包（由簡體中文包自動轉換生成）
 
 
-export default {
+  export default {
+  "effects": {
+    "title": "音效",
+    "enable": "開啟音效",
+    "off": "關閉音效",
+    "hint": "音效即時生效，戴耳機更明顯",
+    "desc": "七種母帶級預設：超重低音 / 3D 環繞 / 全景環繞 / 高解析人聲 / 清澈人聲 / HiFi 現場 / 震撼全景。參數為公開等效實現，非網易雲官方參數。",
+    "superBass": "超重低音",
+    "surround3d": "3D 環繞",
+    "panoramic": "全景環繞",
+    "hdVocal": "高解析人聲",
+    "clearVocal": "清澈人聲",
+    "hifiLive": "HiFi 現場",
+    "immersive": "震撼全景"
+  },
   "notifications": {
     "coverColorAdded": "新增封面色彩",
     "coverColorDefault": "使用默认色彩",
@@ -391,8 +405,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP 专属",
     "qualityNeedLogin": "請先登入網易雲帳號後再切換音質",
-    "qualityNeedVip": "該音質為網易雲會員專享，開通會員後可使用"
-  },
+    "qualityNeedVip": "該音質為網易雲會員專享，開通會員後可使用",
+    "qualityHigher": "較高",
+    "qualitySky": "沉浸環繞",
+    "qualityJymaster": "超清母帶",
+    "qualityAutoHint": "自動播放目前帳號可用的最高音質，可隨時往下切換",
+    "qualityVipNotice": "該音質需要網易雲會員，已自動切換到目前可用的最高音質"  },
   "playlist": {
     "tracks": "首歌曲",
     "plays": "次播放",

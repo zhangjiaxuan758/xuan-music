@@ -20,7 +20,7 @@ import {
 } from './playbackRestriction';
 import { writeProviderSessionValue } from './providerStorage';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
-import { isNeteaseLoggedIn, resolveEffectiveQuality, qualityFromOfficialBr } from './audioQualityGate';
+import { isNeteaseLoggedIn, normalizeQuality, resolveEffectiveQuality, qualityFromOfficialLevel, FULL_QUALITY_CHAIN } from './audioQualityGate';
 
 // src/services/onlineMusic/neteaseProvider.ts
 
@@ -30,10 +30,16 @@ export const toNeteaseId = (id: MediaId): number => {
     return numericId;
 };
 
-const mapQuality = (quality: AudioQualityPreference): string => {
-    if (quality === 'standard') return 'standard';
-    if (quality === 'high') return 'exhigh';
-    return quality;
+/**
+ * 从指定档位往下的完整降级链（对齐官方全部 level）。
+ * 未登录 / 非会员选了会员档时，从该账号实际可用的最高档开始依次降级，
+ * 天然实现「自动播放能播放的最高音质」，官方 br/level 反推真实档位。
+ */
+const qualityLevelsFrom = (quality: AudioQualityPreference): string[] => {
+    const q = normalizeQuality(quality);
+    const idx = FULL_QUALITY_CHAIN.indexOf(q);
+    const start = idx >= 0 ? idx : FULL_QUALITY_CHAIN.indexOf('exhigh');
+    return FULL_QUALITY_CHAIN.slice(start);
 };
 
 const normalizeUser = (raw: any): ProviderUser => ({
@@ -282,14 +288,9 @@ export const neteaseProvider: OnlineMusicProvider = {
             const vipType = accountUser?.vipType;
             const isVip = vipType == null ? true : Number(vipType) !== 0;
             const effectiveQuality = resolveEffectiveQuality(quality, isVip);
-            const levels = isNeteaseLoggedIn()
-                ? [...new Set([
-                    mapQuality(effectiveQuality),
-                    'exhigh',
-                    'higher',
-                    'standard',
-                ].filter(Boolean))]
-                : ['standard'];
+            // 从该账号实际可用的最高档起依次降级：未登录=standard 起步，
+            // 登录后=用户所选档起步；会员档被回落时由 effectiveQuality 决定起点。
+            const levels = qualityLevelsFrom(effectiveQuality);
             // 官方 eapi 对会员 / 付费 / 无版权歌曲返回的是结构化受限字段
             // （code / fee / freeTrialPrivilege 等），并不下发中文提示文案。
             // 这里保留这些字段，交给 UI 按网易云官方口径分类提示，
@@ -315,8 +316,8 @@ export const neteaseProvider: OnlineMusicProvider = {
                         return {
                             url: String(rawUrl).replace(/^http:/, 'https:'),
                             fetchedAt: Date.now(),
-                            // 以官方返回的 br 为准，避免「选了无损、实际拿到 320k」却仍显示无损
-                            quality: qualityFromOfficialBr(entry?.br, effectiveQuality),
+                            // 以官方返回的 level/br 为准，避免「选了无损、实际拿到 320k」却仍显示无损
+                            quality: qualityFromOfficialLevel(entry?.level, entry?.br, effectiveQuality),
                             ...(trialSeconds ? { trialSeconds } : {}),
                         };
                     }

@@ -1,6 +1,20 @@
 
 
-export default {
+  export default {
+  "effects": {
+    "title": "Audio Effects",
+    "enable": "Enable effects",
+    "off": "Off",
+    "hint": "Applies in real time; best with headphones",
+    "desc": "Seven mastering-grade presets: Super Bass / 3D Surround / Panoramic / HD Vocal / Clear Vocal / HiFi Live / Immersive Panorama. Public-domain equivalents, not official NetEase parameters.",
+    "superBass": "Super Bass",
+    "surround3d": "3D Surround",
+    "panoramic": "Panoramic",
+    "hdVocal": "HD Vocal",
+    "clearVocal": "Clear Vocal",
+    "hifiLive": "HiFi Live",
+    "immersive": "Immersive"
+  },
   "notifications": {
     "coverColorAdded": "Cover color added",
     "coverColorDefault": "Using default color",
@@ -389,8 +403,12 @@ export default {
     "qualityHires": "Hi-Res",
     "vipOnly": "VIP Only",
     "qualityNeedLogin": "Please sign in to NetEase Cloud Music first",
-    "qualityNeedVip": "This quality is for VIP members only"
-  },
+    "qualityNeedVip": "This quality is for VIP members only",
+    "qualityHigher": "Higher",
+    "qualitySky": "Immersive",
+    "qualityJymaster": "Master",
+    "qualityAutoHint": "Automatically plays the highest quality your account allows; switch down anytime",
+    "qualityVipNotice": "That quality needs a NetEase VIP; switched to the highest available quality"  },
   "playlist": {
     "tracks": "Tracks",
     "plays": "Plays",

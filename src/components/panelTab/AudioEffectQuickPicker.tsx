@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     readXuanAudioEffects,
     writeXuanAudioEffects,
-    XUAN_EFFECT_PRESETS,
+    availableXuanEffectPresets,
     type XuanAudioEffectSettings,
     type XuanEffectPreset,
 } from '../../services/audioEffects';
@@ -14,10 +15,12 @@ type Props = {
 };
 
 /**
- * 播放控制里的音效快捷面板：开关 + 预设 + 强度。
- * 与设置里的音效共用同一份 localStorage，写入后立即作用于 Web Audio 滤波链。
+ * 播放控制里的音效快捷面板：开关 + 7 种固定预设（超重低音 / 3D 环绕 / 全景环绕 /
+ * 高解析人声 / 清澈人声 / HiFi 现场 / 震撼全景）。无自定义强度调节。
+ * 与设置里的音效共用同一份 localStorage，写入后立即作用于 Web Audio DSP 链。
  */
 export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColor }) => {
+    const { t } = useTranslation();
     const [settings, setSettings] = useState<XuanAudioEffectSettings>(() => readXuanAudioEffects());
     useEffect(() => { writeXuanAudioEffects(settings); }, [settings]);
 
@@ -31,9 +34,9 @@ export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColo
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                     <SlidersHorizontal size={13} className="opacity-40" />
-                    <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">音效</span>
+                    <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{t('effects.title')}</span>
                     <span className="text-[10px] font-bold opacity-70">
-                        {settings.enabled ? (XUAN_EFFECT_PRESETS.find(p => p.value === settings.preset)?.label || '') : '已关闭'}
+                        {settings.enabled ? t(availableXuanEffectPresets().find(p => p.value === settings.preset)?.i18nKey || 'effects.off') : t('effects.off')}
                     </span>
                 </div>
                 <button
@@ -47,8 +50,8 @@ export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColo
                 </button>
             </div>
 
-            <div className={`flex gap-1.5 overflow-x-auto xuan-hide-scrollbar ${wellBg} p-1.5 rounded-xl`}>
-                {XUAN_EFFECT_PRESETS.filter(preset => preset.value !== 'off').map(preset => {
+            <div className={`grid grid-cols-4 gap-1.5 ${wellBg} p-1.5 rounded-xl`}>
+                {availableXuanEffectPresets().filter(preset => preset.value !== 'off').map(preset => {
                     const active = settings.enabled && settings.preset === preset.value;
                     return (
                         <button
@@ -59,34 +62,17 @@ export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColo
                                 preset: preset.value as XuanEffectPreset,
                                 enabled: true,
                             }))}
-                            className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all border ${active ? activeOptionBg : inactiveChip}`}
+                            className={`shrink-0 rounded-lg px-1 py-1.5 text-[10px] font-bold leading-tight transition-all border ${active ? activeOptionBg : inactiveChip}`}
                             style={active ? { color: accent, borderColor: 'transparent' } : { color: 'var(--text-secondary)', borderColor: 'transparent' }}
                         >
-                            {preset.label}
+                            {t(preset.i18nKey)}
                         </button>
                     );
                 })}
             </div>
 
-            {settings.enabled && (
-                <div className="flex items-center gap-2 px-1">
-                    <span className="text-[10px] opacity-40 shrink-0">强度</span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={10}
-                        step={1}
-                        value={settings.intensity}
-                        onChange={(event) => setSettings(prev => ({ ...prev, intensity: Number(event.target.value) }))}
-                        className="flex-1 h-1 accent-current"
-                        style={{ accentColor: accent }}
-                    />
-                    <span className="text-[10px] font-mono opacity-60 w-4 text-right">{settings.intensity}</span>
-                </div>
-            )}
-
             <p className="text-[10px] opacity-30 leading-4">
-                音效实时生效，戴耳机更明显
+                {t('effects.hint')}
             </p>
         </div>
     );

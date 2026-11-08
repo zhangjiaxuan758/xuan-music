@@ -156,6 +156,8 @@ function applyConfig(next: XuanConfig) {
   if (cfg && next.version === cfg.version) return;
   cfg = next;
   try { localStorage.setItem('xuan_server_config', JSON.stringify(next)); } catch { /* noop */ }
+  // 暴露给无依赖模块（audioEffects 等）读取远程开关
+  try { (window as unknown as { __xuanServerConfig?: XuanConfig }).__xuanServerConfig = next; } catch { /* noop */ }
   listeners.forEach(fn => { try { fn(next); } catch { /* noop */ } });
   try { window.dispatchEvent(new CustomEvent('xuan:server-config', { detail: next })); } catch { /* noop */ }
 }
@@ -233,7 +235,7 @@ export async function initXuanServer() {
   started = true;
   try {
     const cached = localStorage.getItem('xuan_server_config');
-    if (cached) { try { cfg = JSON.parse(cached); } catch { /* noop */ } }
+    if (cached) { try { cfg = JSON.parse(cached); (window as unknown as { __xuanServerConfig?: XuanConfig }).__xuanServerConfig = cfg ?? undefined; } catch { /* noop */ } }
   } catch { /* noop */ }
   await fetchServerConfig();
   openSSE();

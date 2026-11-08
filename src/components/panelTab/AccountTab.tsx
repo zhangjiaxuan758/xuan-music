@@ -25,9 +25,12 @@ const AUDIO_QUALITY_OPTIONS: Array<{
     labelKey: string;
 }> = [
     { value: 'standard', labelKey: 'account.qualityStandard' },
-    { value: 'high', labelKey: 'account.qualityExhigh' },
+    { value: 'higher', labelKey: 'account.qualityHigher' },
+    { value: 'exhigh', labelKey: 'account.qualityExhigh' },
     { value: 'lossless', labelKey: 'account.qualityLossless' },
     { value: 'hires', labelKey: 'account.qualityHires' },
+    { value: 'sky', labelKey: 'account.qualitySky' },
+    { value: 'jymaster', labelKey: 'account.qualityJymaster' },
 ];
 
 const AccountTab: React.FC<AccountTabProps> = ({
@@ -151,6 +154,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
                         </button>
                     ))}
                 </div>
+                <p className="mt-2 text-[10px] leading-4 opacity-40">
+                    {t('account.qualityAutoHint')}
+                </p>
             </div>
 
             {/* Cache Management Section */}
