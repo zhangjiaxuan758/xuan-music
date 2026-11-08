@@ -205,7 +205,14 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         : []);
     const activeProviderNeedsRelogin = activeProviderSummary?.error === 'auth-required';
 
-    const [focusedIndex, setFocusedIndex] = useState(0);
+    // 从播放页返回时保留焦点卡片；只有切换 Home tab 才重置（见下方 effect）。
+    const [focusedIndex, setFocusedIndex] = useState(() => {
+        try { return Number(window.sessionStorage.getItem('xuan_home_focused_index')) || 0; }
+        catch { return 0; }
+    });
+    useEffect(() => {
+        try { window.sessionStorage.setItem('xuan_home_focused_index', String(focusedIndex)); } catch { /* ignore */ }
+    }, [focusedIndex]);
     const gridRootRef = useRef<HTMLDivElement>(null);
     const [isLocalImporting, setIsLocalImporting] = useState(false);
     const [isLocalRefreshing, setIsLocalRefreshing] = useState(false);
@@ -255,9 +262,14 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         !updateStatus.updateSeen
     );
 
-    // Reset focused index when switching tabs.
+    // 只在真正切换 Home tab 时重置焦点；首次挂载（含从播放页返回后的重挂载）
+    // 保留已保存的位置，不回到第一个。
+    const prevHomeViewTabRef = useRef(homeViewTab);
     useEffect(() => {
-        setFocusedIndex(0);
+        if (prevHomeViewTabRef.current !== homeViewTab) {
+            prevHomeViewTabRef.current = homeViewTab;
+            setFocusedIndex(0);
+        }
     }, [homeViewTab]);
 
     useEffect(() => {

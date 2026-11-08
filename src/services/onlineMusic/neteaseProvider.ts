@@ -277,10 +277,9 @@ export const neteaseProvider: OnlineMusicProvider = {
             return raw ? normalizeNeteaseSong(raw) : null;
         },
         async getAudioSource(song, quality) {
-            // 未登录时高音质档位经常返回空链接。依次降级到较低档位重试，
-            // 只要任一档位能拿到可播放地址就立即返回，避免「点击播放没反应」。
-            // 未登录时只用官方 standard(128k)，不再越级请求高码率；
-            // 登录后才按用户选择依次降级重试。
+            // 任何登录态都从官方支持的最高档起步，依次降级重试，
+            // 只要任一档位能拿到可播放地址就立即返回。官方按账号权限
+            // 自动降级，天然实现「永远拿到该账号能播的最高音质」。
             // 会员身份来自官方 /api/w/nuser/account/get + /api/nuser/account/get
             // 返回的 profile.vipType；官方 profile 不带该字段时视为「未知」并放行，
             // 由官方取链接口做最终判定，避免把真会员误判成非会员。
@@ -288,8 +287,7 @@ export const neteaseProvider: OnlineMusicProvider = {
             const vipType = accountUser?.vipType;
             const isVip = vipType == null ? true : Number(vipType) !== 0;
             const effectiveQuality = resolveEffectiveQuality(quality, isVip);
-            // 从该账号实际可用的最高档起依次降级：未登录=standard 起步，
-            // 登录后=用户所选档起步；会员档被回落时由 effectiveQuality 决定起点。
+            // 从用户所选档（默认最高 jymaster）起依次降级到 standard。
             const levels = qualityLevelsFrom(effectiveQuality);
             // 官方 eapi 对会员 / 付费 / 无版权歌曲返回的是结构化受限字段
             // （code / fee / freeTrialPrivilege 等），并不下发中文提示文案。

@@ -49,6 +49,10 @@ export const getGrid3DSliderSummaryText = (
     return summary && summary !== getGrid3DSliderSecondaryText(item) ? summary : '';
 };
 
+// 跨 display:none / 组件重挂载保存滚动位置。进播放页时浏览器会把
+// scrollLeft 强制归 0 并派发 scroll 事件，旧的 useRef 方案会被这次归零覆盖。
+const gridScrollMemory = new Map<string, number>();
+
 const DISCRETE_WHEEL_PIXEL_THRESHOLD = 40;
 const DISCRETE_WHEEL_DISTANCE_MULTIPLIER = 3;
 const WHEEL_SMOOTHING_SETTLE_DISTANCE = 0.5;
@@ -476,11 +480,13 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         const frame = requestAnimationFrame(() => {
             const container = scrollContainerRef.current;
             if (!container) return;
-            const saved = savedScrollLeftRef.current;
-            if (saved > 0 && Math.abs(container.scrollLeft - saved) > 1 && itemsSignature === prevItemsSignatureRef.current) {
+            // 优先取跨重挂载的模块级记忆，其次取本实例 ref。
+            const saved = gridScrollMemory.get(`grid3d:${itemsSignature}`) ?? savedScrollLeftRef.current;
+            if (saved > 0 && Math.abs(container.scrollLeft - saved) > 1) {
                 isProgrammaticScrollRef.current = true;
                 programmaticTargetLeftRef.current = saved;
                 container.scrollLeft = saved;
+                savedScrollLeftRef.current = saved;
                 updateCardTransforms();
             }
         });
@@ -489,8 +495,12 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
 
     const handleScroll = useCallback(() => {
         const container = scrollContainerRef.current;
-        // 无论是否可交互，只要发生滚动就记录位置（供 display:none 恢复用）
-        if (container) savedScrollLeftRef.current = container.scrollLeft;
+        // display:none 时浏览器把 scrollLeft 归 0 并派发 scroll；此时绝不能
+        // 用 0 覆盖已保存的位置，否则从播放页返回就会回到第一个。
+        if (container && container.clientWidth > 0 && container.scrollLeft > 0) {
+            savedScrollLeftRef.current = container.scrollLeft;
+            gridScrollMemory.set(`grid3d:${itemsSignature}`, container.scrollLeft);
+        }
 
         if (!isInteractive) {
             updateCardTransforms();
@@ -528,7 +538,7 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         if (hasMore && container.scrollWidth - (container.scrollLeft + container.clientWidth) < scrollThreshold) {
             setVisibleLimit(prev => Math.min(items.length, prev + 60));
         }
-    }, [isInteractive, reportFocusedIndex, updateCardTransforms, visibleLimit, items.length]);
+    }, [isInteractive, reportFocusedIndex, updateCardTransforms, visibleLimit, items.length, itemsSignature]);
 
     const handleMouseDown = (event: React.MouseEvent) => {
         if (!isInteractive || !scrollContainerRef.current || event.button !== 0) return;

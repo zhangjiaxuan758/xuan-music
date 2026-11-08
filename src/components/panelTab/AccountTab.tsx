@@ -6,7 +6,6 @@ import type { AudioQualityPreference, ProviderUser } from '../../types/onlineMus
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../services/onlineMusic/omni';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
-import { checkQualityChange } from '../../services/onlineMusic/audioQualityGate';
 
 interface AccountTabProps {
     user: ProviderUser | null;
@@ -50,26 +49,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const clearProviderAccount = useOnlineProviderAccountStore(state => state.clearAccount);
     const activeUser = providerAccount?.user || (activeProviderId === 'netease' ? user : null);
 
-    // 音质门槛：未登录只能用标准；无损 / Hi-Res 需要会员。
-    // 不通过时给出与「点赞 / 收藏」一致的轻量提示，不弹窗、不跳转。
+    // 音质不做客户端身份拦截：默认最高档，官方按账号权限自动降级，
+    // 任何档位都可直接切换，实际播放档位以官方返回为准。
     const handleQualitySelect = (value: AudioQualityPreference) => {
-        // vipType 明确为 0 / null 才算非会员；官方 profile 偶尔不带该字段时
-        // 传 undefined 放行，避免把真会员误判成非会员而拦截。
-        const vipType = activeUser?.vipType;
-        const isVip = activeUser
-            ? (vipType == null ? undefined : Number(vipType) !== 0)
-            : false;
-        const check = checkQualityChange(value, isVip);
-        if (!check.allowed) {
-            const store = useSettingsUiStore.getState();
-            if (check.reason === 'login') {
-                // 与「点赞 / 收藏」一致：只给一条轻量状态提示，不弹二维码、不跳页。
-                store.statusSetter?.({ type: 'info', text: t('account.qualityNeedLogin') });
-            } else {
-                store.statusSetter?.({ type: 'info', text: t('account.qualityNeedVip') });
-            }
-            return;
-        }
         onAudioQualityChange(value);
     };
 

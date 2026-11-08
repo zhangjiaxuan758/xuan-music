@@ -55,14 +55,11 @@ export interface QualityCheckResult {
  * - 无损 / Hi-Res：需要登录且是会员
  */
 export const checkQualityChange = (
-    quality: AudioQualityPreference,
-    /** true=会员，false=明确非会员，undefined=会员态接口未返回（放行，避免误伤） */
-    isVip: boolean | undefined,
+    _quality: AudioQualityPreference,
+    _isVip: boolean | undefined,
 ): QualityCheckResult => {
-    const tier = qualityTier(quality);
-    if (tier === 'free') return { allowed: true };
-    if (!isNeteaseLoggedIn()) return { allowed: false, reason: 'login' };
-    if (tier === 'vip' && isVip === false) return { allowed: false, reason: 'vip' };
+    // 不做客户端身份预判拦截：任何登录态都允许选任意档位，
+    // 官方取链接口会按账号权限自动降级，因此一律放行。
     return { allowed: true };
 };
 
@@ -91,22 +88,14 @@ export const consumePendingLogin = (): boolean => {
 };
 
 /**
- * 实际取链时使用的音质：即使设置里残留了高音质，未登录也强制标准，
-/**
- * 实际取链时的档位：
- * - 未登录：标准（官方匿名口径；能播到的最高也就是它）。
- * - 登录后按用户选择；会员专享档（无损/Hi-Res/沉浸/母带）在非会员时回落到极高，
- *   由取链降级链 + 官方 br 兜底，保证"永远拿到该账号能播的最高档"。
+ * 实际取链时的档位：未登录 / 登录非会员 / 会员一律从用户所选档位
+ * （默认最高 jymaster）起步，由 FULL_QUALITY_CHAIN 依次降级重试，
+ * 官方按账号权限返回它能给的最高档，最终以官方 br/level 显示真实档位。
  */
 export const resolveEffectiveQuality = (
     quality: AudioQualityPreference,
-    isVip: boolean,
-): AudioQualityPreference => {
-    if (!isNeteaseLoggedIn()) return 'standard';
-    const q = normalizeQuality(quality);
-    if (qualityTier(q) === 'vip' && !isVip) return 'exhigh';
-    return q;
-};
+    _isVip: boolean,
+): AudioQualityPreference => normalizeQuality(quality);
 
 /**
  * 用官方 /api/song/enhance/player/url/v1 的返回反推实际音质。

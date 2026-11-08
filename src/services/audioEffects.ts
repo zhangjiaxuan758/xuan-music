@@ -260,6 +260,8 @@ export const writeXuanAudioEffects = (settings: XuanAudioEffectSettings) => {
 // ---------------------------------------------------------------- Web Audio 实现
 interface EffectNodes {
     input: GainNode;
+    dryGain: GainNode;
+    wetGain: GainNode;
     pre: GainNode;
     eq: BiquadFilterNode[];
     glue: DynamicsCompressorNode;
@@ -409,6 +411,12 @@ const applySettings = (settings: XuanAudioEffectSettings) => {
     appliedPreset = presetId;
     const data: XuanEffectPresetData | null = presetId === 'off' ? null : XUAN_EFFECT_PRESET_DATA[presetId];
     try {
+        // 音效关闭时 100% 走直通旁路，彻底绕开限幅器 / EQ / 压缩 / M-S 展宽。
+        // 旧实现把整条链常驻：未开音效也会被 -1dBFS 砖墙削波（破音），
+        // 并经过 M/S 重编码与多级 Biquad（糊感）。交叉渐变避免切换爆音。
+        smooth(nodes.dryGain.gain, data ? 0 : 1);
+        smooth(nodes.wetGain.gain, data ? 1 : 0);
+
         // 前置 headroom
         smooth(nodes.pre.gain, data ? dB2gain(data.headroomDb) : 1);
 
@@ -531,6 +539,17 @@ if (typeof window !== 'undefined') {
 export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode): AudioNode => {
     // ---- 前置增益
     const input = ctx.createGain();
+
+    // ---- 直通旁路：音效关闭时音频只经过 input -> dryGain -> downstream，
+    // 完全不进 DSP 链，保证 bit-transparent（无破音、无糊感）。
+    const dryGain = ctx.createGain();
+    dryGain.gain.value = 1;
+    const wetGain = ctx.createGain();
+    wetGain.gain.value = 0;
+    input.connect(dryGain);
+    dryGain.connect(downstream);
+    wetGain.connect(downstream);
+
     const pre = ctx.createGain();
     pre.gain.value = 1;
     input.connect(pre);
@@ -616,7 +635,7 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
     ceiling.gain.value = 0.98;
     merger.connect(limiter);
     limiter.connect(ceiling);
-    ceiling.connect(downstream);
+    ceiling.connect(wetGain);
 
     activeNodes = {
         input, pre, eq, glue, satDry, satWet, shaper,
@@ -626,7 +645,7 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
         hrtfWet: null as unknown as GainNode,
         convolver: null as unknown as ConvolverNode,
         reverbWet: null as unknown as GainNode,
-        limiter, ceiling,
+        limiter, ceiling, dryGain, wetGain,
     };
     activeContext = ctx;
     buildSpace(ctx, merger, activeNodes);
