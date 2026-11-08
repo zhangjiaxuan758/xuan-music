@@ -329,7 +329,22 @@ export const neteaseProvider: OnlineMusicProvider = {
                     console.warn(`[NeteaseProvider] getSongUrl failed at ${level}`, error);
                 }
             }
-            if (restriction) throw new NeteasePlaybackRestrictionError(restriction);
+            if (restriction) {
+                // 网易云已全面收紧：未登录（匿名）请求一律不下发播放/试听链接
+                // （freeTrialPrivilege.cannotListenReason=1）。此时「会员专享 /
+                // 无权限」本质都是「需要登录」，给用户能行动的提示而不是报错。
+                const permissionLike = restriction.reason === 'vip'
+                    || restriction.reason === 'paid-album'
+                    || restriction.reason === 'unknown';
+                if (!isNeteaseLoggedIn() && permissionLike) {
+                    throw new NeteasePlaybackRestrictionError({
+                        reason: 'login-required',
+                        code: restriction.code,
+                        fee: restriction.fee,
+                    });
+                }
+                throw new NeteasePlaybackRestrictionError(restriction);
+            }
             return null;
         },
         getAvailability(song): ProviderSongAvailability {

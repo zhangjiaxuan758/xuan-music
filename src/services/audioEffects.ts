@@ -20,7 +20,7 @@
 //
 // 音质（标准 / 极高 / 无损 / Hi-Res）不走这里，是官方
 // /api/song/enhance/player/url/v1 的 level 参数直连，属于 100% 官方码率流。
-export type XuanEffectPreset = 'off' | 'superBass' | 'bassBoost' | 'clearVocal' | 'live' | 'electronic' | 'classical';
+export type XuanEffectPreset = 'off' | 'superBass' | 'clearVocal' | 'live' | 'electronic' | 'classical';
 
 export interface XuanAudioEffectSettings {
     enabled: boolean;
@@ -35,7 +35,6 @@ export const XUAN_EFFECT_CHANGE_EVENT = 'xuan-audio-effect-change';
 export const XUAN_EFFECT_PRESETS: Array<{ value: XuanEffectPreset; label: string }> = [
     { value: 'off', label: '关闭音效' },
     { value: 'superBass', label: '超重低音' },
-    { value: 'bassBoost', label: '低音增强' },
     { value: 'clearVocal', label: '清澈人声' },
     { value: 'live', label: '现场环绕' },
     { value: 'electronic', label: '动感电音' },
@@ -94,7 +93,6 @@ type PresetCurve = {
 const PRESETS: Record<XuanEffectPreset, PresetCurve> = {
     off:        { eq: [0, 0, 0, 0], drive: 0 },
     superBass:  { eq: [9, 6, -1.5, 1.5], drive: 0.42 },
-    bassBoost:  { eq: [6, 3.5, 0, 1], drive: 0.22 },
     clearVocal: { eq: [-2.5, -1, 5, 3.5], drive: 0.05 },
     live:       { eq: [3, 2, 2, 4.5], drive: 0.14 },
     electronic: { eq: [8, 3.5, -3, 6], drive: 0.3 },

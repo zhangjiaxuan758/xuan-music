@@ -1,4 +1,5 @@
 import { neteaseApi } from '../netease';
+import { getServerConfig } from '../xuanServer';
 import type { SongResult } from '../../types';
 
 // 「开发者推荐」固定歌单：曲目由开发者指定，ID 取自网易云官方 eapi 搜索结果。
@@ -9,6 +10,7 @@ export interface DevRecommendedSongMeta {
     artist: string;
 }
 
+// 离线兜底常量；运行时由服务端 config.developerPicks 实时覆盖（管理端可改）
 export const DEV_RECOMMENDED_SONGS: DevRecommendedSongMeta[] = [
     { id: 1335942780, name: '九万字', artist: '黄诗扶' },
     { id: 486188225,  name: '刚好遇见你', artist: '李玉刚' },
@@ -49,15 +51,19 @@ const fallbackSong = (meta: DevRecommendedSongMeta): SongResult => ({
  * 的判定与官方口径保持一致，不需要在推荐页另写一套权限逻辑。
  */
 export const getDeveloperRecommendedSongs = async (): Promise<SongResult[]> => {
+    const remote = getServerConfig()?.developerPicks;
+    const picks: DevRecommendedSongMeta[] = (remote && remote.length ? remote : DEV_RECOMMENDED_SONGS)
+        .map(s => ({ id: Number(s.id) || 0, name: String(s.name || ''), artist: String(s.artist || '') }))
+        .filter(s => s.id > 0);
     try {
-        const response = await neteaseApi.getSongDetail(DEV_RECOMMENDED_SONGS.map(song => song.id));
+        const response = await neteaseApi.getSongDetail(picks.map(song => song.id));
         const rawSongs: any[] = Array.isArray(response?.songs) ? response.songs : [];
         const byId = new Map<string, any>(
             rawSongs
                 .filter(song => song && song.id != null)
                 .map(song => [String(song.id), song]),
         );
-        return DEV_RECOMMENDED_SONGS.map(meta => {
+        return picks.map(meta => {
             const raw = byId.get(String(meta.id));
             if (!raw) return fallbackSong(meta);
             try {

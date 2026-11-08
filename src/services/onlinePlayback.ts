@@ -34,8 +34,10 @@ const describeSongMetadataRestriction = (song: SongResult): NeteasePlaybackRestr
     const hasSession = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
     // 已登录交给官方判断：会员能听完整版，过期会员/买过专辑的情况官方会回试听或 -110。
     if (hasSession) return null;
-    if (fee === 4) return { reason: 'paid-album', fee };
-    if (fee === 1 || fee === 8) return { reason: 'vip', fee };
+    // 未登录时网易云已不再下发任何播放/试听链接（2024 起策略收紧，
+    // 匿名请求一律 freeTrialPrivilege.cannotListenReason=1），
+    // 提前按元数据归类为「需登录」，避免发起注定为空的官方请求。
+    if (fee === 4 || fee === 1 || fee === 8) return { reason: 'login-required', fee };
     return null;
 };
 

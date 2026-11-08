@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useXuanRuntimeBridge } from './hooks/useXuanRuntimeBridge';
 import { useMotionValue, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
@@ -2909,6 +2910,23 @@ export default function App() {
             return () => clearTimeout(timer);
         }
     }, [shouldKeepHomeMounted]);
+
+    // 小轩音乐运行时接线：服务端实时配置、状态栏媒体通知、云端收藏、
+    // 在线更新检查、网页端后台播放。客户端与网页端共用同一套逻辑。
+    useXuanRuntimeBridge({
+        currentSong,
+        playerState,
+        isLoggedIn: Boolean(user),
+        isLiked: (() => {
+            if (!currentSong) return false;
+            try { return omni.isSongLiked(currentSong, likedSongIds); } catch { return false; }
+        })(),
+        coverUrl: cachedCoverUrl || coverUrl || null,
+        handleNextTrack,
+        handlePrevTrack,
+        togglePlay,
+        handleLike,
+    });
 
     return (
         <AppShell

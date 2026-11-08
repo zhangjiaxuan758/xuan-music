@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, Sparkle, ArrowUpDown, Check, Copy, RefreshCw, Cone, Layers, Sun, Moon, Settings, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, Sparkle, ArrowUpDown, Check, Copy, RefreshCw, Cone, Layers, Sun, Moon, Settings, Volume2, Volume1, VolumeX, SkipBack, SkipForward } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { type LatentBackgroundDisplayMode, Theme, ThemeMode, type VisualizerBackgroundMode, VisualizerMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
@@ -12,6 +12,8 @@ import { syncNow } from '../../services/sync/syncCoordinator';
 import { isSyncConfigured } from '../../services/sync/syncConfig';
 import QuickEffectPicker from './QuickEffectPicker';
 import { AudioEffectQuickPicker } from './AudioEffectQuickPicker';
+import { playerRemote } from '../../services/playerRemote';
+import { getServerConfig } from '../../services/xuanServer';
 
 // Controls tab composes compact visualizer and background pickers without changing player state flow.
 
@@ -211,6 +213,21 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
             className="relative"
         >
             <div className="space-y-4">
+                {/* 与进度条保持一致的上一首/下一首（管理端可开关） */}
+                {(getServerConfig()?.ui?.progressShowPrevNext !== false) && (
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => playerRemote.prev()}
+                            aria-label="上一首"
+                            className={`h-11 rounded-xl flex items-center justify-center gap-2 transition-colors ${buttonBg}`}
+                        ><SkipBack size={18} fill="currentColor" /><span className="text-xs">上一首</span></button>
+                        <button
+                            onClick={() => playerRemote.next()}
+                            aria-label="下一首"
+                            className={`h-11 rounded-xl flex items-center justify-center gap-2 transition-colors ${buttonBg}`}
+                        ><span className="text-xs">下一首</span><SkipForward size={18} fill="currentColor" /></button>
+                    </div>
+                )}
                 <div className="grid grid-cols-3 gap-3">
                     <button
                         onClick={onToggleLoop}

@@ -80,6 +80,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
         >
             {/* 与右下角调节按钮完全协调：都由沉浸状态驱动，一起 0.15s 纯淡入淡出、零位移。
                 按钮 DOM 常驻（不卸载），避免退出沉浸后第一次点击被吞。 */}
+            {/* 与右下角调节按钮共用 16px 右边距（pr-4），两者右边缘严格对齐。 */}
             {resolvedOnBack && (
                 <motion.button
                     type="button"
