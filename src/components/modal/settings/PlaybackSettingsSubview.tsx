@@ -8,6 +8,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { getSupportedFrameRates, readFrameRatePref, writeFrameRatePref, type FrameRatePref } from '../../../services/frameRate';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
+import { XuanAudioEffectSettings } from './XuanAudioEffectSettings';
 
 // src/components/modal/settings/PlaybackSettingsSubview.tsx
 // Playback behavior and output-device settings extracted from the global settings modal.
@@ -183,6 +184,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
     return (
         <div className="space-y-5">
+            {/* 音效设置入口：开关 + 7 种固定预设，设置 → 播放 里可直接打开 */}
+            <XuanAudioEffectSettings isDaylight={isDaylight} />
             <FrameRateSection settingsCardClass={settingsCardClass} isDaylight={isDaylight} />
             <section>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>

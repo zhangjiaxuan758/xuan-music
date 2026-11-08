@@ -18,7 +18,6 @@ import { applyAppLanguagePreference, readStoredAppLanguagePreference, type AppLa
 import { normalizeFontFamilyStack, normalizeFontWeight } from '../utils/fontStacks';
 import i18n from '../i18n/config';
 import type { AudioQualityPreference } from '../types/onlineMusic';
-import { readProviderSessionValue } from '../services/onlineMusic/providerStorage';
 import { XUAN_LOGIN_CONFIRMED_EVENT } from '../services/onlineMusic/audioQualityGate';
 import { getServerConfig } from '../services/xuanServer';
 import {
@@ -146,21 +145,18 @@ export const resolveStoredAudioQuality = (saved: string | null): AudioQuality =>
             return (remote === 'high' ? 'exhigh' : remote) as AudioQuality;
         }
     } catch { /* ignore */ }
-    return 'exhigh';
+    // 无本地偏好、也无管理端默认档时，直接用官方最高档。
+    return 'jymaster';
 };
 
 const readStoredAudioQuality = (): AudioQuality => {
     if (typeof window === 'undefined') {
-        return 'standard';
+        return 'jymaster';
     }
 
-    const saved = localStorage.getItem('default_audio_quality');
-    const quality = resolveStoredAudioQuality(saved);
-    // 未登录时按网易云官方口径只用标准音质；不覆盖已保存的偏好，
-    // 登录成功后由 XUAN_LOGIN_CONFIRMED_EVENT 重新读取。
-    const loggedIn = Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie']));
-    if (!loggedIn) return 'standard';
-    return quality;
+    // 任何登录态都默认使用官方最高音质；官方取链接口按账号权限自动降级，
+    // 不再因为「未登录」把用户偏好强制压回 standard。
+    return resolveStoredAudioQuality(localStorage.getItem('default_audio_quality'));
 };
 
 const readStoredBackgroundOpacity = () => {
