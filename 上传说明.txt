@@ -1,0 +1,76 @@
+把这份源码上传到你的 GitHub 仓库（https://github.com/zhangjiaxuan758/xuan-music）
+=================================================
+
+先确认仓库已存在且为空。如果不是空的，先删掉里面的 README 等文件，或者换一个新仓库。
+不要勾选「Add a README」「.gitignore」「license」，否则会产生冲突提交。
+
+
+方式 A：网页拖拽上传（不用装任何软件）
+--------------------------------------
+1. 打开 https://github.com/zhangjiaxuan758/xuan-music
+2. 点 Add file → Upload files
+3. 打开解压出来的「小轩音乐源码」文件夹，全选里面所有文件和文件夹，拖进网页
+   ⚠ 不要拖「小轩音乐源码」这个外层文件夹本身，否则仓库里会多一层目录
+4. 等进度条走完 → 底部填一句说明 → 点 Commit changes
+5. 文件约 900 个，网页一次可能传不完，可以分几次提交（每次选一部分）
+   如果嫌慢，用方式 B。
+
+
+方式 C：GitHub Desktop（图形界面，适合不想敲命令的人）
+------------------------------------------------------
+1. 下载安装 https://desktop.github.com/
+2. File → Add local repository → 选解压出来的「小轩音乐源码」文件夹
+3. 提示不是仓库时点「create a repository」，然后 Commit to main
+4. 点右上角 Publish repository，取消勾选 Keep this code private（如果要公开），发布
+5. 如果仓库已存在：Repository → Repository settings → Remote 填
+   https://github.com/zhangjiaxuan758/xuan-music.git，再 Push origin
+
+
+方式 B：命令行 git（推荐，一次传完、不会漏文件）
+----------------------------------------------
+需要本机装好 Git。GitHub 已不支持账号密码推送，先申请令牌：
+  https://github.com/settings/tokens → Generate new token (classic)
+  勾选 repo 权限 → 生成后复制，保存好（只显示一次）
+
+```bash
+# 1. 进入解压后的目录（有 package.json 的那一层）
+cd 小轩音乐源码
+
+# 2. 初始化并提交
+git init
+git config user.name  "zhangjiaxuan758"
+git config user.email "你的邮箱"
+git add -A
+git commit -m "小轩音乐 Android 源码（占位符脱敏版，v1.6.5 / 10624）"
+git branch -M main
+
+# 3. 关联远程并推送（密码处粘贴上面生成的令牌，不是账号密码）
+git remote add origin https://github.com/zhangjiaxuan758/xuan-music.git
+git push -u origin main --force
+```
+
+如果第 3 步报 `remote: Support for password authentication was removed`，
+说明你填的是账号密码，改成令牌。
+如果报 `Updates were rejected`，说明远程有内容，用 `git push -u origin main --force`
+覆盖（确认远程没有你要保留的东西再执行）。
+
+
+上传完成后
+----------
+1. 打开仓库页面，确认能看到 README.md、src/、android/、package.json
+2. 确认没有 签名信息.txt、*.jks、.env.local（有的话立刻删掉，密钥不要公开）
+3. 仓库 Settings → 底部 Danger Zone 可改可见性
+4. 建议在仓库 About 里填：小轩音乐 · Android 网易云第三方客户端
+
+
+包里有什么 / 没有什么
+---------------------
+有：完整前端源码、安卓工程、README、构建说明、.gitignore、.env.example
+没有（已刻意剔除）：
+  - 签名文件 xuan-music.jks 及其密码
+  - 签名信息.txt（含密钥库密码）
+  - .env.local 真实配置
+  - node_modules / dist / build 产物 / APK
+  - 网易云 eapi 协议常量（已换成 __PLACEHOLDER_*__ 占位符）
+
+补齐占位符后才能编译出可用 APK，具体见 README.md。
