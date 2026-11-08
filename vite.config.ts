@@ -221,7 +221,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
       react(),
       ...(isCapacitorBuild ? [] : [VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['icon.svg'],
+        includeAssets: ['favicon.png'],
         devOptions: {
           enabled: true
         },
@@ -231,17 +231,17 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
           globIgnores: ['**/runtime-config.js']
         },
         manifest: {
-          name: 'Folia Music',
-          short_name: 'Folia',
-          description: 'A beautiful AI-themed music player',
+          name: '小轩音乐',
+          short_name: '小轩音乐',
+          description: '小轩音乐客户端',
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
           icons: [
             {
-              src: 'icon.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
+              src: 'favicon.png',
+              sizes: '192x192',
+              type: 'image/png',
               purpose: 'any maskable'
             }
           ]
