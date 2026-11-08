@@ -2494,7 +2494,9 @@ export default function App() {
         handleSetVolume,
         handleToggleMute,
         showOpenPanelCloseButton,
-        hideToggleButton: shouldHidePlayerRightPanelButton,
+        // 沉浸模式：右下调节按钮与右上返回按钮都由 isPlayerChromeHidden 驱动，
+        // 一起做 0.15s 纯淡入淡出（零位移），不再出现「只隐藏返回按钮」的不协调。
+        hideToggleButton: isPlayerChromeHidden || shouldHidePlayerRightPanelButton,
         activePlaybackContext,
         isNowPlayingControlDisabled,
         openSettings,

@@ -971,15 +971,19 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
             </div>
 
             {/* Toggle Button */}
+            {/* 沉浸模式与右上返回按钮协调：一起 0.15s 纯淡入淡出、零位移。
+                这里用 opacity / pointer-events 控制而非条件卸载，按钮 DOM 常驻，
+                避免退出沉浸时重新挂载导致「第一次点击被吞」。 */}
             <AnimatePresence>
-                {!hideToggleButton && (!isOpen || showOpenPanelCloseButton) && !isCommandPaletteOpen && (
+                {(!isOpen || showOpenPanelCloseButton) && !isCommandPaletteOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        animate={{ opacity: hideToggleButton ? 0 : 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
+                        style={{ pointerEvents: hideToggleButton ? 'none' : 'auto' }}
                         data-xuan-no-double="true"
-                        className="pointer-events-auto fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
+                        className="fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}
                         <div className={`relative w-12 h-12 transition-all duration-300 transform ${toggleButtonMotionClass}`}>

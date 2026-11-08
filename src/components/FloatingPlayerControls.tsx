@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Play, Pause, Repeat, Repeat1, RepeatOff, ChartBar } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
@@ -65,11 +65,11 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     hideControlBar = false,
     controlsDisabled = false,
 }) => {
+    // 视觉回到 10620 原版：收起是窄条、展开是全宽，两种状态一眼可辨。
     const glassBgExpanded = isDaylight ? 'bg-white/60 border border-white/20 shadow-xl' : 'bg-black/40 border border-white/5';
     const glassBgCollapsed = isDaylight ? 'bg-white/40 border border-white/20 shadow-lg hover:bg-white/50' : 'bg-black/20 border border-white/5 hover:bg-black/30';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)';
 
-    // 展开态（放大）/ 收起态（缩小）。收起是原来的窄条，展开是全宽带控件行。
     const [isHovered, setIsHovered] = useState(false);
     // 拖动中锁住展开态，松手后仍保持展开，直到点外部才收起。
     const [isScrubbing, setIsScrubbing] = useState(false);
@@ -100,9 +100,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     }, []);
 
     // 点外部收起：监听常驻（不随展开态反复挂载），保证「点空白总能缩小」。
-    // 关键修复：时间线弹窗在 containerRef 之外，以前它内部的一次 pointerdown
-    // 会被当成「点外部」→ 直接 setIsTimelineOpen(false) 关掉弹窗 + 收起控件，
-    // 表现就是「点开之后一滑，那个就消失、按钮还缩小」。这里明确排除。
+    // 明确排除时间线弹窗内部，否则弹窗里一次 pointerdown 会被当成点外部，
+    // 直接关掉弹窗 + 收起控件，表现就是「点开之后一滑，那个就消失、按钮还缩小」。
     useEffect(() => {
         const handleOutsidePointerDown = (event: PointerEvent) => {
             if (isScrubbingRef.current || isTimelineOpenRef.current) return;
@@ -201,55 +200,97 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         layout
                         transition={{ layout: CONTROL_LAYOUT_SPRING }}
                         onClick={handleClick}
-                        // 恢复原版视觉：收起是窄条、展开是全宽，放大/缩小一眼可辨。
+                        // 10620 原版视觉：收起 w-[80%] md:w-[60%]，展开 w-full p-3
                         className={`backdrop-blur-3xl shadow-2xl overflow-hidden cursor-pointer rounded-full relative transition-colors duration-300
-                            ${showExpanded ? `p-3 ${glassBgExpanded} w-full` : `px-4 py-2 ${glassBgCollapsed} w-[85%] md:w-[70%]`}`}
+                            ${showExpanded ? `p-3 ${glassBgExpanded} w-full` : `px-4 py-2 ${glassBgCollapsed} w-[80%] md:w-[60%]`}`}
                     >
-                        <div className="w-full flex flex-col gap-1.5">
-                            <AnimatePresence initial={false}>
+                        <motion.div layout transition={{ layout: CONTROL_LAYOUT_SPRING }} className="w-full">
+                            {/* 10620 原版网格：展开后播放键在左（跨两行）、歌名在中上、
+                                进度条在中下、循环与时间线按钮在右（跨两行）。
+                                收起时退化成单行，只剩一条进度条。 */}
+                            <div className={showExpanded
+                                ? 'grid w-full grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]'
+                                : 'flex w-full items-center justify-center'}>
                                 {showExpanded && (
-                                    <motion.div
-                                        key="xuan-expanded-controls"
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        transition={{ duration: 0.18, ease: 'easeOut' }}
-                                        className="overflow-hidden w-full"
-                                    >
-                                        <ExpandedControlsRow
-                                            currentSong={currentSong}
-                                            playerState={playerState}
-                                            loopMode={loopMode}
-                                            canTogglePlay={canTogglePlay}
-                                            onTogglePlay={onTogglePlay}
-                                            onToggleLoop={onToggleLoop}
-                                            onToggleTimeline={() => setIsTimelineOpen(true)}
-                                            noTrackText={noTrackText}
-                                            primaryColor={primaryColor}
-                                            hasLyrics={!!lyrics}
-                                            isDaylight={isDaylight}
-                                            controlsDisabled={controlsDisabled}
-                                        />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                                    <>
+                                        {/* Row 1: 居中的歌曲名 */}
+                                        <div
+                                            className="col-span-3 row-start-1 min-w-0 truncate px-2 text-center text-sm font-bold select-none sm:col-start-2 sm:col-span-1"
+                                            style={{ color: primaryColor }}
+                                        >
+                                            {currentSong?.name || noTrackText}
+                                        </div>
 
-                            {/* 唯一的进度条实例：展开/收起都不卸载，pointer capture 全程保留，
-                                所以滑动时间线不会「一滑就消失 + 缩回小条」。 */}
-                            <div className="w-full px-2">
-                                <ProgressBar
-                                    currentTime={currentTime}
-                                    duration={duration}
-                                    onSeek={onSeek}
-                                    onSeekStart={beginScrub}
-                                    onSeekEnd={endScrub}
-                                    primaryColor={primaryColor}
-                                    secondaryColor={secondaryColor}
-                                    trackColor={trackColor}
-                                    disabled={controlsDisabled}
-                                />
+                                        {/* 播放 / 暂停 */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onTogglePlay();
+                                            }}
+                                            disabled={!canTogglePlay || controlsDisabled}
+                                            className={`col-start-2 row-start-2 flex h-12 w-12 shrink-0 items-center justify-center justify-self-center rounded-full border-none text-black shadow-lg transition-transform sm:col-start-1 sm:row-start-1 sm:row-span-2 sm:justify-self-auto ${controlsDisabled ? 'cursor-not-allowed opacity-45' : 'hover:scale-105'}`}
+                                            style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
+                                        >
+                                            {playerState === PlayerState.PLAYING ? (
+                                                <Pause size={20} fill="currentColor" />
+                                            ) : (
+                                                <Play size={20} fill="currentColor" className="ml-1" />
+                                            )}
+                                        </button>
+
+                                        {/* 循环 + 歌词时间线 */}
+                                        <div className="contents sm:col-start-3 sm:row-start-1 sm:row-span-2 sm:flex sm:items-center sm:gap-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onToggleLoop();
+                                                }}
+                                                disabled={controlsDisabled}
+                                                className={`col-start-1 row-start-2 justify-self-end rounded-full p-2 transition-colors sm:justify-self-auto ${loopMode !== 'off' ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/20') : 'opacity-40 hover:opacity-100'} ${controlsDisabled ? 'cursor-not-allowed opacity-35' : ''}`}
+                                                style={{ color: primaryColor }}
+                                            >
+                                                {loopMode === 'off'
+                                                    ? <RepeatOff size={20} className="sm:h-[18px] sm:w-[18px]" />
+                                                    : loopMode === 'one'
+                                                        ? <Repeat1 size={20} className="sm:h-[18px] sm:w-[18px]" />
+                                                        : <Repeat size={20} className="sm:h-[18px] sm:w-[18px]" />}
+                                            </button>
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsTimelineOpen(true);
+                                                }}
+                                                disabled={!lyrics}
+                                                className={`col-start-3 row-start-2 justify-self-start rounded-full p-2 transition-colors sm:justify-self-auto ${!lyrics ? 'cursor-not-allowed opacity-20' : `opacity-40 hover:opacity-100 ${isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}`}
+                                                style={{ color: primaryColor }}
+                                                title="View Lyrics Timeline"
+                                            >
+                                                <ChartBar size={20} className="sm:h-[18px] sm:w-[18px]" />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* 唯一的进度条实例：展开 / 收起都不卸载，DOM 节点常驻，
+                                    pointer capture 全程保留，滑动时间线不会「一滑就消失 + 缩回小条」。 */}
+                                <div className={showExpanded
+                                    ? 'col-span-3 row-start-3 w-full px-2 sm:col-start-2 sm:col-span-1 sm:row-start-2'
+                                    : 'flex h-8 w-full items-center justify-center px-4'}>
+                                    <ProgressBar
+                                        currentTime={currentTime}
+                                        duration={duration}
+                                        onSeek={onSeek}
+                                        onSeekStart={beginScrub}
+                                        onSeekEnd={endScrub}
+                                        primaryColor={primaryColor}
+                                        secondaryColor={secondaryColor}
+                                        trackColor={trackColor}
+                                        disabled={controlsDisabled}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        </motion.div>
                     </motion.div>
                 </div>
             </motion.div>
@@ -272,93 +313,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                 disabled={controlsDisabled}
             />
         </>
-    );
-};
-
-// 展开态上方的控件行；进度条不在这里，避免切换时被一起卸载。
-interface ExpandedControlsRowProps {
-    currentSong: { name: string; } | null;
-    playerState: PlayerState;
-    loopMode: 'off' | 'all' | 'one';
-    canTogglePlay: boolean;
-    onTogglePlay: () => void;
-    onToggleLoop: () => void;
-    onToggleTimeline: () => void;
-    noTrackText: string;
-    primaryColor: string;
-    hasLyrics: boolean;
-    isDaylight?: boolean;
-    controlsDisabled?: boolean;
-}
-
-const ExpandedControlsRow: React.FC<ExpandedControlsRowProps> = ({
-    currentSong,
-    playerState,
-    loopMode,
-    canTogglePlay,
-    onTogglePlay,
-    onToggleLoop,
-    onToggleTimeline,
-    noTrackText,
-    primaryColor,
-    hasLyrics,
-    isDaylight,
-    controlsDisabled = false,
-}) => {
-    return (
-        <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3">
-            <div
-                className="col-span-3 row-start-1 min-w-0 truncate px-2 pb-1 text-center text-sm font-bold select-none"
-                style={{ color: primaryColor }}
-            >
-                {currentSong?.name || noTrackText}
-            </div>
-
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleLoop();
-                }}
-                disabled={controlsDisabled}
-                className={`col-start-1 row-start-2 justify-self-end rounded-full p-2 transition-colors ${loopMode !== 'off' ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/20') : 'opacity-40 hover:opacity-100'} ${controlsDisabled ? 'cursor-not-allowed opacity-35' : ''}`}
-                style={{ color: primaryColor }}
-            >
-                {loopMode === 'off'
-                    ? <RepeatOff size={20} />
-                    : loopMode === 'one'
-                        ? <Repeat1 size={20} />
-                        : <Repeat size={20} />}
-            </button>
-
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePlay();
-                }}
-                disabled={!canTogglePlay || controlsDisabled}
-                className={`col-start-2 row-start-2 justify-self-center flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-none text-black shadow-lg transition-transform ${controlsDisabled ? 'cursor-not-allowed opacity-45' : 'hover:scale-105'}`}
-                style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
-            >
-                {playerState === PlayerState.PLAYING ? (
-                    <Pause size={20} fill="currentColor" />
-                ) : (
-                    <Play size={20} fill="currentColor" className="ml-1" />
-                )}
-            </button>
-
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleTimeline();
-                }}
-                disabled={!hasLyrics}
-                className={`col-start-3 row-start-2 justify-self-start rounded-full p-2 transition-colors ${!hasLyrics ? 'cursor-not-allowed opacity-20' : `opacity-40 hover:opacity-100 ${isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}`}
-                style={{ color: primaryColor }}
-                title="View Lyrics Timeline"
-            >
-                <ChartBar size={20} />
-            </button>
-        </div>
     );
 };
 
