@@ -103,6 +103,10 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
     const grid3dCardStyle = useSettingsUiStore(state => state.grid3dCardStyle);
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    // 滚动位置保留：进播放页时 Home 被 display:none 隐藏（scrollLeft 丢失），
+    // 持续保存位置，重新可见时恢复；切换 tab（itemsSignature 变化）才清零。
+    const savedScrollLeftRef = useRef(0);
+    const prevItemsSignatureRef = useRef<string>('');
     const containerRef = useRef<HTMLDivElement>(null);
     const onFocusedIndexChangeRef = useRef(onFocusedIndexChange);
     const focusedIndexRef = useRef(focusedIndex);
@@ -442,6 +446,11 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
 
     useEffect(() => {
         if (items.length === 0) return;
+        // 切换 tab / 数据集变化 → 清掉保存的滚动位置，回到起始；同签名（如进播放页返回）→ 保留
+        if (prevItemsSignatureRef.current !== itemsSignature) {
+            savedScrollLeftRef.current = 0;
+            prevItemsSignatureRef.current = itemsSignature;
+        }
         const nextIndex = clampFocusedIndex(focusedIndex, items.length);
 
         if (nextIndex !== focusedIndex) {
@@ -461,13 +470,33 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         });
     }, [centerIndex, focusedIndex, items.length, itemsSignature, updateCardTransforms]);
 
+    // 从播放页返回（Home 由 display:none 恢复可见）→ 恢复原滚动位置
+    useEffect(() => {
+        if (!isInteractive) return;
+        const frame = requestAnimationFrame(() => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+            const saved = savedScrollLeftRef.current;
+            if (saved > 0 && Math.abs(container.scrollLeft - saved) > 1 && itemsSignature === prevItemsSignatureRef.current) {
+                isProgrammaticScrollRef.current = true;
+                programmaticTargetLeftRef.current = saved;
+                container.scrollLeft = saved;
+                updateCardTransforms();
+            }
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [isInteractive, itemsSignature, updateCardTransforms]);
+
     const handleScroll = useCallback(() => {
+        const container = scrollContainerRef.current;
+        // 无论是否可交互，只要发生滚动就记录位置（供 display:none 恢复用）
+        if (container) savedScrollLeftRef.current = container.scrollLeft;
+
         if (!isInteractive) {
             updateCardTransforms();
             return;
         }
 
-        const container = scrollContainerRef.current;
         if (!container) return;
 
         const closestIndex = updateCardTransforms();

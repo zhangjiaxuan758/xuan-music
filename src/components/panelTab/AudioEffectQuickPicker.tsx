@@ -5,6 +5,7 @@ import {
     readXuanAudioEffects,
     writeXuanAudioEffects,
     availableXuanEffectPresets,
+    XUAN_EFFECT_CHANGE_EVENT,
     type XuanAudioEffectSettings,
     type XuanEffectPreset,
 } from '../../services/audioEffects';
@@ -15,14 +16,25 @@ type Props = {
 };
 
 /**
- * 播放控制里的音效快捷面板：开关 + 7 种固定预设（超重低音 / 3D 环绕 / 全景环绕 /
- * 高解析人声 / 清澈人声 / HiFi 现场 / 震撼全景）。无自定义强度调节。
- * 与设置里的音效共用同一份 localStorage，写入后立即作用于 Web Audio DSP 链。
+ * 播放控制里的音效快捷面板：开关 + 7 种固定预设。无自定义强度调节。
+ * 状态规则（修复"开关自己变化"问题）：
+ *  - 只在用户操作时写入 localStorage（挂载绝不回写，避免旧状态覆盖新状态）
+ *  - 监听全局变更事件，与其他入口/管理端远程配置保持同步
  */
 export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColor }) => {
     const { t } = useTranslation();
     const [settings, setSettings] = useState<XuanAudioEffectSettings>(() => readXuanAudioEffects());
-    useEffect(() => { writeXuanAudioEffects(settings); }, [settings]);
+
+    useEffect(() => {
+        const sync = () => setSettings(readXuanAudioEffects());
+        window.addEventListener(XUAN_EFFECT_CHANGE_EVENT, sync);
+        return () => window.removeEventListener(XUAN_EFFECT_CHANGE_EVENT, sync);
+    }, []);
+
+    const update = (next: XuanAudioEffectSettings) => {
+        setSettings(next);
+        writeXuanAudioEffects(next);
+    };
 
     const accent = accentColor || 'rgba(114,119,134,1)';
     const wellBg = isDaylight ? 'bg-black/5' : 'bg-black/20';
@@ -41,7 +53,7 @@ export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColo
                 </div>
                 <button
                     type="button"
-                    onClick={() => setSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
+                    onClick={() => update({ ...settings, enabled: !settings.enabled })}
                     className={`h-5 w-9 rounded-full p-0.5 transition-colors shrink-0 ${!settings.enabled ? (isDaylight ? 'bg-black/15' : 'bg-white/15') : ''}`}
                     style={settings.enabled ? { backgroundColor: accent } : undefined}
                     aria-pressed={settings.enabled}
@@ -57,11 +69,7 @@ export const AudioEffectQuickPicker: React.FC<Props> = ({ isDaylight, accentColo
                         <button
                             key={preset.value}
                             type="button"
-                            onClick={() => setSettings(prev => ({
-                                ...prev,
-                                preset: preset.value as XuanEffectPreset,
-                                enabled: true,
-                            }))}
+                            onClick={() => update({ ...settings, preset: preset.value as XuanEffectPreset, enabled: true })}
                             className={`shrink-0 rounded-lg px-1 py-1.5 text-[10px] font-bold leading-tight transition-all border ${active ? activeOptionBg : inactiveChip}`}
                             style={active ? { color: accent, borderColor: 'transparent' } : { color: 'var(--text-secondary)', borderColor: 'transparent' }}
                         >

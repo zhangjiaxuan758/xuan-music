@@ -372,10 +372,14 @@ export const neteaseProvider: OnlineMusicProvider = {
             const loginResponse = await neteaseApi.getLoginStatus();
             const loginProfile = loginResponse?.data?.profile;
             const loginCode = Number(loginResponse?.code ?? loginResponse?.data?.code);
+            // code -1 = 网络/服务端不可达：绝不能当成"未登录"清掉本地登录态，
+            // 抛 NETWORK_UNREACHABLE 让上层保留缓存的账号快照，联网后自动恢复。
+            if (loginCode === -1) throw new Error('NETWORK_UNREACHABLE');
             if (!loginProfile || [301, 401, 403].includes(loginCode)) return null;
 
             const accountResponse = await neteaseApi.getUserAccount();
             const accountCode = Number(accountResponse?.code ?? accountResponse?.data?.code);
+            if (accountCode === -1) throw new Error('NETWORK_UNREACHABLE');
             const accountProfile = accountResponse?.profile;
             const accountId = accountResponse?.account?.id ?? accountProfile?.userId;
             const loginId = loginProfile?.userId ?? loginProfile?.id;

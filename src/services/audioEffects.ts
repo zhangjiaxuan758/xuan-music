@@ -64,7 +64,7 @@ export interface XuanSpace {
 /** 平台无关的完整预设参数（Web / Android 共享同一份 JSON）。 */
 export interface XuanEffectPresetData {
     id: XuanEffectPreset;
-    version: 2;
+    version: 3;
     headroomDb: number;        // 前置增益（负值 = 衰减留余量）
     eq: XuanEqBand[];
     glue: XuanGlueComp | null;
@@ -77,106 +77,111 @@ export interface XuanEffectPresetData {
 export const XUAN_EFFECT_PRESET_DATA: Record<Exclude<XuanEffectPreset, 'off'>, XuanEffectPresetData> = {
     // 1. 超重低音：低架+低频峰提升，磁带饱和给低频加谐波质感（Missing Fundamental），
     //    胶水压缩收住冲击，绝不单纯"轰头"。
+    //    v3 去糊感：300Hz 收敛加深、饱和驱动/湿声下调、混响更透。
     superBass: {
-        id: 'superBass', version: 2, headroomDb: -3.5,
+        id: 'superBass', version: 3, headroomDb: -4.5,
         eq: [
-            { type: 'lowshelf', freq: 110, gain: 8.5, q: 0.7 },
-            { type: 'peaking', freq: 160, gain: 5, q: 0.9 },
-            { type: 'peaking', freq: 1100, gain: -1.5, q: 0.8 },
+            { type: 'lowshelf', freq: 100, gain: 7, q: 0.7 },
+            { type: 'peaking', freq: 160, gain: 4, q: 0.95 },
+            { type: 'peaking', freq: 320, gain: -3, q: 0.8 },
+            { type: 'peaking', freq: 1100, gain: -1, q: 0.8 },
             { type: 'highshelf', freq: 7000, gain: 1.5 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.42, mix: 0.34 },
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.28, mix: 0.18 },
         stereoWidth: 1.05,
         space: { mode: 'none', wet: 0 },
-        limiterCeilingDb: -1,
+        limiterCeilingDb: -1.5,
     },
     // 2. 3D 环绕：双 HRTF PannerNode 绕头慢旋（0.08Hz），轻展宽 + 极短混响润色。
     surround3d: {
-        id: 'surround3d', version: 2, headroomDb: -4.5,
+        id: 'surround3d', version: 3, headroomDb: -5,
         eq: [
-            { type: 'peaking', freq: 300, gain: -1.5, q: 0.9 },
-            { type: 'peaking', freq: 2500, gain: 1.5, q: 0.8 },
+            { type: 'peaking', freq: 320, gain: -2.5, q: 0.8 },
+            { type: 'peaking', freq: 2500, gain: 2, q: 0.7 },
             { type: 'highshelf', freq: 8000, gain: 2 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.12, mix: 0.15 },
-        stereoWidth: 1.25,
-        space: { mode: 'hrtf3d', wet: 0.55, spinHz: 0.08, radius: 1.6 },
-        limiterCeilingDb: -1,
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.1, mix: 0.1 },
+        stereoWidth: 1.2,
+        space: { mode: 'hrtf3d', wet: 0.4, spinHz: 0.08, radius: 1.7 },
+        limiterCeilingDb: -1.5,
     },
-    // 3. 全景环绕：M/S 大幅展宽 + 短 IR 混响，声场宽而不散（Hass 效应由展宽+湿声承担）。
+    // 3. 全景环绕：M/S 展宽 + 短 IR 混响，声场宽而不散（Hass 效应由展宽+湿声承担）。
     panoramic: {
-        id: 'panoramic', version: 2, headroomDb: -4,
+        id: 'panoramic', version: 3, headroomDb: -4.5,
         eq: [
-            { type: 'lowshelf', freq: 90, gain: 2.5, q: 0.7 },
+            { type: 'lowshelf', freq: 90, gain: 2, q: 0.7 },
+            { type: 'peaking', freq: 320, gain: -2, q: 0.8 },
             { type: 'peaking', freq: 3000, gain: 1.5, q: 0.7 },
-            { type: 'highshelf', freq: 9000, gain: 3 },
+            { type: 'highshelf', freq: 9000, gain: 2.5 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.14, mix: 0.16 },
-        stereoWidth: 1.65,
-        space: { mode: 'reverb', wet: 0.22, irSeconds: 0.8 },
-        limiterCeilingDb: -1,
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.12, mix: 0.1 },
+        stereoWidth: 1.55,
+        space: { mode: 'reverb', wet: 0.14, irSeconds: 0.8 },
+        limiterCeilingDb: -1.5,
     },
     // 4. 高解析人声：削浑浊(250Hz)、抬齿音清晰度(3.2k presence)、补空气感(10k air)，
     //    轻饱和增加密度，限制器防齿音刺耳。
     hdVocal: {
-        id: 'hdVocal', version: 2, headroomDb: -2.5,
+        id: 'hdVocal', version: 3, headroomDb: -3.5,
         eq: [
-            { type: 'peaking', freq: 250, gain: -2.5, q: 0.9 },
-            { type: 'peaking', freq: 3200, gain: 3.5, q: 0.8 },
-            { type: 'peaking', freq: 6500, gain: 2, q: 1.2 },
-            { type: 'highshelf', freq: 10000, gain: 2.5 },
+            { type: 'peaking', freq: 280, gain: -3, q: 0.85 },
+            { type: 'peaking', freq: 3200, gain: 3, q: 0.7 },
+            { type: 'peaking', freq: 6500, gain: 1.5, q: 1.2 },
+            { type: 'highshelf', freq: 10000, gain: 2 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.1, mix: 0.18 },
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.08, mix: 0.1 },
         stereoWidth: 1.08,
         space: { mode: 'none', wet: 0 },
-        limiterCeilingDb: -1,
+        limiterCeilingDb: -1.5,
     },
     // 5. 清澈人声：比高解析更中性，低频收一点、中频透一点，几乎不加染色。
     clearVocal: {
-        id: 'clearVocal', version: 2, headroomDb: -2,
+        id: 'clearVocal', version: 3, headroomDb: -3,
         eq: [
-            { type: 'peaking', freq: 350, gain: -2, q: 0.9 },
-            { type: 'peaking', freq: 1100, gain: 2.5, q: 0.8 },
+            { type: 'peaking', freq: 350, gain: -2.5, q: 0.85 },
+            { type: 'peaking', freq: 1100, gain: 2, q: 0.7 },
             { type: 'highshelf', freq: 8000, gain: 1.5 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.05, mix: 0.12 },
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.04, mix: 0.07 },
         stereoWidth: 1.02,
         space: { mode: 'none', wet: 0 },
-        limiterCeilingDb: -1,
+        limiterCeilingDb: -1.5,
     },
     // 6. HiFi 现场：1.6s 厅堂 IR + 适度展宽 + 温和低频，还原"在现场"的空间包围感。
     hifiLive: {
-        id: 'hifiLive', version: 2, headroomDb: -4,
+        id: 'hifiLive', version: 3, headroomDb: -4.5,
         eq: [
-            { type: 'lowshelf', freq: 100, gain: 3, q: 0.7 },
-            { type: 'peaking', freq: 1600, gain: 1, q: 0.8 },
+            { type: 'lowshelf', freq: 100, gain: 2.5, q: 0.7 },
+            { type: 'peaking', freq: 320, gain: -1.5, q: 0.8 },
+            { type: 'peaking', freq: 1600, gain: 1, q: 0.7 },
             { type: 'highshelf', freq: 8000, gain: 2 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.16, mix: 0.2 },
-        stereoWidth: 1.4,
-        space: { mode: 'reverb', wet: 0.3, irSeconds: 1.6 },
-        limiterCeilingDb: -1,
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.12, mix: 0.12 },
+        stereoWidth: 1.35,
+        space: { mode: 'reverb', wet: 0.2, irSeconds: 1.6 },
+        limiterCeilingDb: -1.5,
     },
     // 7. 震撼全景：超重低音 + 全景展宽 + 短混响三合一，整体响度由胶水压缩+限制器兜住。
     immersive: {
-        id: 'immersive', version: 2, headroomDb: -5,
+        id: 'immersive', version: 3, headroomDb: -5.5,
         eq: [
-            { type: 'lowshelf', freq: 95, gain: 7, q: 0.7 },
-            { type: 'peaking', freq: 150, gain: 4, q: 0.9 },
-            { type: 'peaking', freq: 3000, gain: 2, q: 0.7 },
-            { type: 'highshelf', freq: 9000, gain: 3.5 },
+            { type: 'lowshelf', freq: 95, gain: 5.5, q: 0.7 },
+            { type: 'peaking', freq: 160, gain: 3, q: 0.95 },
+            { type: 'peaking', freq: 320, gain: -2.5, q: 0.8 },
+            { type: 'peaking', freq: 3000, gain: 1.5, q: 0.7 },
+            { type: 'highshelf', freq: 9000, gain: 2.5 },
         ],
-        glue: { threshold: -16, ratio: 4, attack: 0.008, release: 0.12, knee: 10 },
-        saturation: { drive: 0.32, mix: 0.3 },
-        stereoWidth: 1.55,
-        space: { mode: 'reverb', wet: 0.18, irSeconds: 0.7 },
-        limiterCeilingDb: -1,
+        glue: { threshold: -12, ratio: 3, attack: 0.010, release: 0.15, knee: 12 },
+        saturation: { drive: 0.22, mix: 0.16 },
+        stereoWidth: 1.45,
+        space: { mode: 'reverb', wet: 0.12, irSeconds: 0.7 },
+        limiterCeilingDb: -1.5,
     },
 };
 
@@ -193,7 +198,7 @@ export const XUAN_EFFECT_PRESETS: Array<{ value: XuanEffectPreset; i18nKey: stri
 
 /** 导出与平台无关的共享 JSON（Android 端 AudioProcessor 读同一份）。 */
 export const exportXuanEffectPresetsJson = (): string =>
-    JSON.stringify({ version: 2, presets: XUAN_EFFECT_PRESET_DATA }, null, 2);
+    JSON.stringify({ version: 3, presets: XUAN_EFFECT_PRESET_DATA }, null, 2);
 
 // ---------------------------------------------------------------- 设置存取
 export interface XuanAudioEffectSettings {
@@ -315,7 +320,8 @@ const makeBrickwallCurve = (ceiling: number): Float32Array<ArrayBuffer> => {
             curve[i] = x;
         } else {
             const t = (a - knee) / Math.max(1e-6, 1 - knee);
-            curve[i] = Math.sign(x) * (knee + (ceiling - knee) * Math.tanh(t));
+            // 端点精确落在 ceiling（tanh(1) 归一），任何输入输出都不越过天花板
+            curve[i] = Math.sign(x) * (knee + (ceiling - knee) * (Math.tanh(t) / Math.tanh(1)));
         }
     }
     return curve;
@@ -339,7 +345,7 @@ const makeImpulseResponse = (ctx: AudioContext, seconds: number): AudioBuffer =>
             const t = i / len;
             const decay = Math.pow(1 - t, 2.2);
             const noise = Math.random() * 2 - 1;
-            lp = lp * 0.72 + noise * 0.28; // 轻微低通，让尾巴更"暖"
+            lp = lp * 0.55 + noise * 0.45; // 提亮：低通减轻，尾巴更透（去糊感）
             data[i] = lp * decay;
         }
         // 前 5ms 线性起坡，避免湿声"咔"声
@@ -436,7 +442,7 @@ const applySettings = (settings: XuanAudioEffectSettings) => {
         if (data?.saturation) {
             const { drive, mix } = data.saturation;
             nodes.shaper.curve = makeSaturationCurve(drive);
-            nodes.shaper.oversample = '2x';
+            nodes.shaper.oversample = '4x';
             smooth(nodes.satWet.gain, mix);
             smooth(nodes.satDry.gain, 1 - mix * 0.5);
         } else {
@@ -529,12 +535,14 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
     pre.gain.value = 1;
     input.connect(pre);
 
-    // ---- 多段参数 EQ（常驻 4 段，覆盖所有预设；最大段数预设 immersive=4）
+    // ---- 多段参数 EQ（常驻 6 段，覆盖所有预设最长 5 段 + 2 余量；类型/频率按预设动态设置）
     const EQ_SPEC: Array<{ type: BiquadFilterType; freq: number; q: number }> = [
-        { type: 'lowshelf', freq: 110, q: 0.7 },
-        { type: 'peaking', freq: 300, q: 0.9 },
+        { type: 'lowshelf', freq: 100, q: 0.7 },
+        { type: 'peaking', freq: 160, q: 0.9 },
+        { type: 'peaking', freq: 320, q: 0.85 },
         { type: 'peaking', freq: 1100, q: 0.8 },
-        { type: 'highshelf', freq: 7000, q: 0.7 },
+        { type: 'peaking', freq: 3000, q: 0.8 },
+        { type: 'highshelf', freq: 8000, q: 0.7 },
     ];
     const eq = EQ_SPEC.map(spec => {
         const f = ctx.createBiquadFilter();

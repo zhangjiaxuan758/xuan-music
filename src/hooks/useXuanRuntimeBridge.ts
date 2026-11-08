@@ -16,7 +16,7 @@ import { registerPlayerRemote } from '../services/playerRemote';
 import { onServerConfigChange, fetchServerConfig, getServerConfig, initXuanServer } from '../services/xuanServer';
 import { initFavoriteCache, syncLikedFromCloud, onFavoriteChange } from '../services/neteaseFavorite';
 import {
-  initAppUpdater, updateMediaNotification, hideMediaNotification, onMediaAction,
+  initAppUpdater, updateMediaNotification, onMediaAction,
 } from '../services/appUpdater';
 import type { SongResult } from '../types';
 import { PlayerState } from '../types';
@@ -45,6 +45,8 @@ export function useXuanRuntimeBridge(a: Args) {
     void initXuanServer();
     initFavoriteCache();
     void initAppUpdater();
+    // 帧率：默认设备最高，用户设置的低档在此应用（仅客户端）
+    void import('../services/frameRate').then(m => void m.applyFrameRate()).catch(() => {});
     const off = onServerConfigChange(() => force(n => n + 1));
     const offFav = onFavoriteChange(() => force(n => n + 1));
     const onCfg = () => force(n => n + 1);
@@ -86,12 +88,19 @@ export function useXuanRuntimeBridge(a: Args) {
     });
   }, []);
 
-  // ---------- 状态栏媒体通知（仅客户端） ----------
+  // ---------- 常驻媒体通知（仅客户端） ----------
+  // 规则：App 活着（后台没清掉）→ 通知栏常驻媒体模块；完全清后台 → 服务 onTaskRemoved 移除
   useEffect(() => {
     if (!isNative()) return;
     const s = ref.current;
     const song: any = s.currentSong;
-    if (!song) { void hideMediaNotification(); return; }
+    if (!song) {
+      void updateMediaNotification({
+        title: '小轩音乐', artist: '未在播放', playing: false,
+        cover: null, showFavorite: false, liked: false,
+      });
+      return;
+    }
     const artists = song?.artists ?? song?.ar ?? [];
     const artist = Array.isArray(artists)
       ? artists.map((x: any) => x?.name ?? '').filter(Boolean).join(' / ')
