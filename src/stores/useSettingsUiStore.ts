@@ -154,6 +154,19 @@ const readStoredAudioQuality = (): AudioQuality => {
         return 'jymaster';
     }
 
+    // 一次性迁移：旧版本在「未登录」或登录成功时把 standard 落盘为默认档，
+    // 升级后会被当成用户偏好读回，导致音质仍不是最高。这里只执行一次，
+    // 之后用户手动切换的档位会正常保留。
+    try {
+        if (localStorage.getItem('xuan_quality_highest_migrated') !== '1') {
+            localStorage.setItem('xuan_quality_highest_migrated', '1');
+            const prev = localStorage.getItem('default_audio_quality');
+            if (!prev || prev === 'standard') {
+                localStorage.setItem('default_audio_quality', 'jymaster');
+            }
+        }
+    } catch { /* ignore */ }
+
     // 任何登录态都默认使用官方最高音质；官方取链接口按账号权限自动降级，
     // 不再因为「未登录」把用户偏好强制压回 standard。
     return resolveStoredAudioQuality(localStorage.getItem('default_audio_quality'));
