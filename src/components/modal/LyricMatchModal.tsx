@@ -262,7 +262,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
 
     return (
         <div data-folia-keyboard-window="true" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center p-6">
-            <div className={`${bgClass} border rounded-2xl max-w-5xl w-full max-h-[80vh] flex flex-col shadow-2xl backdrop-blur-md`}>
+            <div className={`${bgClass} border rounded-2xl max-w-5xl w-full h-[92vh] max-h-[92vh] flex flex-col shadow-2xl backdrop-blur-md`}>
                 {/* Header */}
                 <div className={`px-6 py-4 border-b ${borderColor} flex items-center justify-between`}>
                     <div className="min-w-0">
@@ -283,9 +283,9 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                 </div>
 
                 {/* Body: Two-panel layout */}
-                <div className="flex-1 flex min-h-0 overflow-hidden">
+                <div className="flex-1 flex min-h-0 overflow-y-auto custom-scrollbar">
                     {/* LEFT PANEL: Search + Results (wider) */}
-                    <div className={`w-[62%] flex flex-col border-r ${borderColor}`}>
+                    <div className={`w-[56%] flex flex-col border-r ${borderColor}`}>
                         {/* Search Bar */}
                         <div className="p-4">
                             <div className={`flex border-b ${borderColor} pb-2 mb-3.5 gap-4`}>
@@ -406,7 +406,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                     </div>
 
                     {/* RIGHT PANEL: Centered-style preview with lower-half LyricPreviewPanel */}
-                    <div className="w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l border-white/10 min-h-0 overflow-hidden">
+                    <div className="w-[44%] flex flex-col items-center justify-between px-6 py-6 border-l border-white/10 min-h-0 overflow-hidden">
                         {/* Upper section: Cover, Indicators and Info centered (Scrollable when height is constrained) */}
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
@@ -498,7 +498,7 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                         </div>
 
                         {/* Lyric Preview Panel */}
-                        <div className="w-full h-28 flex-shrink-0 mt-4 flex flex-col">
+                        <div className="w-full min-h-[168px] flex-1 mt-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
                             <LyricPreviewPanel selectedResult={selectedResult} source={source} isDaylight={isDaylight} />
                         </div>
                     </div>

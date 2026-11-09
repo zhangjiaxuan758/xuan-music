@@ -9,7 +9,7 @@ import { hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
 import { saveToCache } from '../services/db';
-import { attachXuanAudioEffects } from '../services/audioEffects';
+import { attachXuanAudioEffects, registerSeekDuckNode } from '../services/audioEffects';
 
 // src/hooks/usePlaybackAudioBridge.ts
 
@@ -111,6 +111,12 @@ export function usePlaybackAudioBridge({
             const gainNode = ctx.createGain();
             gainNodeRef.current = gainNode;
 
+            // seek 瞬间静音节点：跳转时解码器 / DSP 残留缓冲会产生「电音 / 杂音」，
+            // 用一个极短的 duck 包络把跳转那十几毫秒遮掉。
+            const duckGain = ctx.createGain();
+            duckGain.gain.value = 1;
+            registerSeekDuckNode(duckGain);
+
             const source = ctx.createMediaElementSource(audioRef.current);
             // 小轩音乐：真实生效的可调音效链（超重低音 / 清澈人声 / 现场环绕 …）。
             // source -> 滤波链 -> gain -> analyser -> destination
@@ -121,7 +127,8 @@ export function usePlaybackAudioBridge({
                 console.warn('[XuanAudioEffect] chain unavailable, using direct gain', error);
             }
             source.connect(effectInput);
-            gainNode.connect(analyser);
+            gainNode.connect(duckGain);
+            duckGain.connect(analyser);
             analyser.connect(ctx.destination);
             sourceRef.current = source;
             syncOutputGain(getTargetPlaybackVolume(), 0);

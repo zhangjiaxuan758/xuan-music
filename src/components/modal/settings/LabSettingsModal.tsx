@@ -135,10 +135,10 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         <button
             type="button"
             onClick={onChange}
-            className={`w-12 h-6 rounded-full p-1 transition-colors ${checked ? '' : toggleOffBackgroundClass}`}
+            className={`relative w-12 h-6 rounded-full p-1 overflow-hidden flex items-center transition-colors ${checked ? '' : toggleOffBackgroundClass}`}
             style={{ backgroundColor: checked ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
         >
-            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
+            <div className={`w-4 h-4 shrink-0 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
         </button>
     );
 

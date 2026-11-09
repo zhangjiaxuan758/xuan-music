@@ -169,7 +169,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
     return (
         <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={handleOverlayMouseDown} onClick={handleBackdropClick}>
             <div
-                className={`w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-3xl border ${bgClass} shadow-2xl flex flex-col`}
+                className={`w-full max-w-5xl h-[92vh] max-h-[92vh] overflow-hidden rounded-3xl border ${bgClass} shadow-2xl flex flex-col`}
                 onClick={event => event.stopPropagation()}
             >
                 <div className={`flex items-center justify-between px-6 py-5 border-b ${borderColor}`}>
@@ -182,9 +182,9 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                     </button>
                 </div>
 
-                <div className="flex-1 flex min-h-0 overflow-hidden">
+                <div className="flex-1 flex min-h-0 overflow-y-auto custom-scrollbar">
                     {/* LEFT PANEL */}
-                    <div className={`w-[62%] flex flex-col border-r ${borderColor} p-6 gap-5 min-h-0`}>
+                    <div className={`w-[56%] flex flex-col border-r ${borderColor} p-6 gap-5 min-h-0`}>
                         <div className={`flex border-b ${borderColor} pb-2 gap-4`}>
                             {LYRIC_MATCH_SOURCES
                                 .map(id => ({ id, label: getLyricMatchSourceLabel(id) }))
@@ -291,7 +291,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                     </div>
 
                     {/* RIGHT PANEL: Centered-style preview with lower-half LyricPreviewPanel */}
-                    <div className={`w-[38%] flex flex-col items-center justify-between px-6 py-6 border-l ${borderColor} min-h-0 overflow-hidden`}>
+                    <div className={`w-[44%] flex flex-col items-center justify-between px-6 py-6 border-l ${borderColor} min-h-0 overflow-y-auto custom-scrollbar`}>
                         {/* Upper section: Cover and Info centered (Scrollable when height is constrained) */}
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
@@ -331,7 +331,7 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                         </div>
 
                         {/* Lyric Preview Panel */}
-                        <div className="w-full h-28 flex-shrink-0 mt-4 flex flex-col">
+                        <div className="w-full min-h-[168px] flex-1 mt-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
                             <LyricPreviewPanel selectedResult={selectedResult} source={source} isDaylight={isDaylight} />
                         </div>
                     </div>

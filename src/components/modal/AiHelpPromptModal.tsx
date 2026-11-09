@@ -8,9 +8,9 @@ import { X as CloseIcon } from 'lucide-react';
 
 // src/components/modal/AiHelpPromptModal.tsx
 
-// 小轩音乐：文档与仓库全部指向用户自己的 xuan-music 仓库，不再使用上游站点。
-const FOLIA_GUIDE_URL = 'https://github.com/zhangjiaxuan758/xuan-music#使用说明';
-const FOLIA_DOCS_URL = 'https://github.com/zhangjiaxuan758/xuan-music';
+// 小轩音乐：「遇到问题 / 使用说明」文档一律跳到自建 help.html，不再跳 GitHub。
+const FOLIA_GUIDE_URL = 'https://music.jrr.lol/help.html';
+const FOLIA_DOCS_URL = 'https://music.jrr.lol/help.html';
 const XUAN_REPOSITORY_URL = 'https://github.com/zhangjiaxuan758/xuan-music';
 const FOLIA_REPOSITORY_URL = XUAN_REPOSITORY_URL;
 

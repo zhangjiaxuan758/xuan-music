@@ -324,6 +324,9 @@ export const PolaroidCard = React.memo<{
                         {/* Title */}
                         <div className="group/song-title relative max-w-full">
                             <div className="text-s font-bold tracking-tight opacity-90 max-w-full line-clamp-4 whitespace-normal break-words">
+                                {(item as any).vip && (
+                                    <span className="inline-block align-middle mr-1 mb-[2px] px-[3px] py-[1px] rounded-[3px] border border-[#e0b34c] text-[#e0b34c] text-[8px] font-extrabold leading-none tracking-wider">VIP</span>
+                                )}
                                 {item.name}
                             </div>
                             {isFocused && onEditLocalMetadata && (

@@ -285,7 +285,8 @@ export const neteaseProvider: OnlineMusicProvider = {
             // 由官方取链接口做最终判定，避免把真会员误判成非会员。
             const accountUser = useOnlineProviderAccountStore.getState().accounts?.['netease']?.user;
             const vipType = accountUser?.vipType;
-            const isVip = vipType == null ? true : Number(vipType) !== 0;
+            // 真实会员判定：vipType 缺失 / 为 0 一律按非会员，不再把「未知」当会员放行。
+            const isVip = Number(vipType ?? 0) > 0;
             const effectiveQuality = resolveEffectiveQuality(quality, isVip);
             // 从用户所选档（默认最高 jymaster）起依次降级到 standard。
             const levels = qualityLevelsFrom(effectiveQuality);

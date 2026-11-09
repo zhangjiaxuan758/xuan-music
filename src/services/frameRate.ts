@@ -2,7 +2,7 @@
 // --------------------------------------------------------------------
 // 默认使用设备最高刷新率；设置里可切换 30/60/…/设备最高（不支持的档不显示，最低 30）。
 // 原生端通过 preferredDisplayModeId 选择同分辨率下最接近目标帧率的显示模式。
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 export const FRAME_RATE_STORAGE_KEY = 'xuan_frame_rate';
 // 0 = 自动（设备最高帧率）
@@ -14,8 +14,15 @@ interface XuanNativeFrameRate {
 }
 
 const native = (): XuanNativeFrameRate | null => {
-  const w = window as unknown as { XuanNative?: XuanNativeFrameRate; Capacitor?: unknown };
-  return Capacitor.isNativePlatform() && w.XuanNative ? w.XuanNative : null;
+  // 原生插件通过 Capacitor 注册，不会自动挂到 window.XuanNative；
+  // 旧实现查 window 恒为 null，导致 getSupportedFrameRates() 返回空数组、
+  // 设置里的「切换帧率」整块被隐藏。这里改为按插件名解析。
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return registerPlugin<XuanNativeFrameRate>('XuanNative');
+  } catch {
+    return null;
+  }
 };
 
 export const readFrameRatePref = (): FrameRatePref => {
