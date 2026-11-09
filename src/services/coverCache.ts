@@ -67,21 +67,60 @@ export async function getCachedCoverUrl(cacheKey: string): Promise<string | null
     return createSafeObjectUrl(cachedCover);
 }
 
+const COVER_STATIC_CACHE = 'xuan-static-covers-v1';
+
+/** Cache API 读取离线封面（二进制资产库之外的第二重兜底）。 */
+const readCoverFromStaticCache = async (coverUrl: string): Promise<Blob | null> => {
+    try {
+        if (typeof caches === 'undefined') return null;
+        const cache = await caches.open(COVER_STATIC_CACHE);
+        const hit = await cache.match(coverUrl);
+        if (!hit) return null;
+        const blob = await hit.blob();
+        return blob.size > 0 ? blob : null;
+    } catch { return null; }
+};
+
+/** 联网拿到封面后同时写 Cache API，之后断网也能取回。 */
+const writeCoverToStaticCache = async (coverUrl: string, blob: Blob): Promise<void> => {
+    try {
+        if (typeof caches === 'undefined') return;
+        const cache = await caches.open(COVER_STATIC_CACHE);
+        await cache.put(coverUrl, new Response(blob, {
+            headers: { 'Content-Type': blob.type || 'image/jpeg' },
+        }));
+    } catch { /* noop */ }
+};
+
 export async function loadCachedOrFetchCover(cacheKey: string, coverUrl?: string | null): Promise<string | null> {
     if (!coverUrl) return null;
 
+    // 1) 二进制资产库（IndexedDB / OPFS）优先，离线可用。
     try {
         const cachedCoverUrl = await getCachedCoverUrl(cacheKey);
-        if (cachedCoverUrl) {
-            return cachedCoverUrl;
-        }
+        if (cachedCoverUrl) return cachedCoverUrl;
+    } catch { /* noop */ }
 
+    // 2) 联网获取并双写，保证之后断网仍可显示。
+    try {
         const coverBlob = await fetchCoverBlob(coverUrl);
         const descriptor = await writeCoverAsset(cacheKey, coverBlob).catch(() => null);
         if (descriptor) await saveToCache(cacheKey, descriptor);
+        await writeCoverToStaticCache(coverUrl, coverBlob);
         return createSafeObjectUrl(coverBlob) || coverUrl;
     } catch (error) {
-        console.warn('Failed to cache cover:', error);
+        // 3) 断网 / 请求失败：从静态资源缓存读回，避免「图片损坏」裂图。
+        try {
+            const blob = await readCoverFromStaticCache(coverUrl);
+            if (blob) {
+                const descriptor = await writeCoverAsset(cacheKey, blob).catch(() => null);
+                if (descriptor) await saveToCache(cacheKey, descriptor);
+                const objectUrl = createSafeObjectUrl(blob);
+                if (objectUrl) return objectUrl;
+            }
+        } catch { /* noop */ }
+        console.warn('Failed to cache cover (offline):', error);
+        // 交给全局离线图片守卫兜底显示中性占位图
         return coverUrl;
     }
 }

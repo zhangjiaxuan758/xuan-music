@@ -116,6 +116,20 @@ class XuanMediaService : Service() {
         }
     } catch (_: Throwable) { null }
 
+    /** 状态栏小图标：优先软件图标单色版，其次白色软件矢量，最后才回退音乐符号。 */
+    private fun appSmallIcon(): Int {
+        val mono = resources.getIdentifier("ic_launcher_monochrome", "mipmap", packageName)
+        if (mono != 0) return mono
+        val d = resources.getIdentifier("ic_xuan_app_noti", "drawable", packageName)
+        return if (d != 0) d else icon("ic_xuan_note")
+    }
+
+    /** 没有专辑封面时，通知大图标显示软件图标本体（彩色）。 */
+    private fun appLargeIcon() = try {
+        val id = resources.getIdentifier("ic_launcher", "mipmap", packageName)
+        if (id != 0) BitmapFactory.decodeResource(resources, id) else null
+    } catch (_: Throwable) { null }
+
     private fun showMedia(title: String, artist: String, playing: Boolean, cover: String?, showFav: Boolean, liked: Boolean) {
         val bmp = decodeCover(cover)
 
@@ -152,7 +166,7 @@ class XuanMediaService : Service() {
         }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(icon("ic_xuan_note"))
+            .setSmallIcon(appSmallIcon())
             .setContentTitle(title)
             .setContentText(artist)
             .setOngoing(true)               // 常驻：不能被手动划掉，只有清后台才消失
@@ -163,12 +177,14 @@ class XuanMediaService : Service() {
             .setContentIntent(contentIntent())
             .addAction(icon("ic_xuan_prev"), "上一首", pending("prev"))
             .addAction(playAction)
-            .addAction(icon("ic_xuan_next"), "下一首", pending("next"))
 
+        // 登录后把「收藏」排到第三个动作：紧凑视图 setShowActionsInCompactView(0,1,2)
+        // 只显示前三个，之前收藏排第四，折叠状态下完全看不到点赞按钮。
         if (showFav) {
             val favIcon = if (liked) icon("ic_xuan_fav_on") else icon("ic_xuan_fav_off")
             builder.addAction(favIcon, if (liked) "取消收藏" else "收藏", pending("like"))
         }
+        builder.addAction(icon("ic_xuan_next"), "下一首", pending("next"))
 
         session?.let { s ->
             try {
@@ -180,7 +196,7 @@ class XuanMediaService : Service() {
             } catch (_: Throwable) { }
         }
 
-        if (bmp != null) builder.setLargeIcon(bmp)
+        if (bmp != null) builder.setLargeIcon(bmp) else appLargeIcon()?.let { builder.setLargeIcon(it) }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)

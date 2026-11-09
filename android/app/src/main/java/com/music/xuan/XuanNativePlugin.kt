@@ -23,6 +23,10 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Equalizer
+import android.media.audiofx.Virtualizer
+import com.getcapacitor.JSArray
 import java.io.File
 import java.io.FileOutputStream
 
@@ -51,6 +55,13 @@ class XuanNativePlugin : Plugin() {
     private var receiver: BroadcastReceiver? = null
     private var registered = false
 
+    // 系统均衡器：全局音频会话（session 0）上的 Android 原生音效，
+    // 前端 7 种预设全部映射到这里，Web Audio 链在原生可用时整体旁路。
+    private var sysEq: Equalizer? = null
+    private var sysBass: BassBoost? = null
+    private var sysVirtual: Virtualizer? = null
+    private val sysSession = 0
+
     override fun load() {
         val filter = IntentFilter().apply { ACTIONS.forEach { addAction(ACTION_PREFIX + it) } }
         receiver = object : BroadcastReceiver() {
@@ -76,7 +87,84 @@ class XuanNativePlugin : Plugin() {
 
     override fun handleOnDestroy() {
         if (registered) { try { context.unregisterReceiver(receiver) } catch (_: Exception) { } }
+        try { sysEq?.release(); sysBass?.release(); sysVirtual?.release() } catch (_: Throwable) { }
+        sysEq = null; sysBass = null; sysVirtual = null
         super.handleOnDestroy()
+    }
+
+    /** 懒加载系统音效；三个效果分别容错，任一不可用不影响其余。 */
+    private fun ensureSystemEq() {
+        if (sysEq != null) return
+        // session 0 = 全局输出混音：这是 WebView 音频唯一稳定可取的系统级会话，
+        // 需 Manifest 声明 MODIFY_AUDIO_SETTINGS（normal 权限，无需动态申请）。
+        try { sysEq = Equalizer(0, sysSession); sysEq?.enabled = true } catch (_: Throwable) { sysEq = null }
+        try { sysBass = BassBoost(0, sysSession); sysBass?.enabled = true } catch (_: Throwable) { sysBass = null }
+        try { sysVirtual = Virtualizer(0, sysSession); sysVirtual?.enabled = true } catch (_: Throwable) { sysVirtual = null }
+    }
+
+    /** 前端探测系统均衡器能力（频段数 / 增益范围，millibels）。 */
+    @PluginMethod
+    fun getSystemEqStatus(call: PluginCall) {
+        try {
+            ensureSystemEq()
+            val eq = sysEq
+            if (eq == null) {
+                call.resolve(JSObject().apply {
+                    put("available", false); put("bands", 0); put("min", 0); put("max", 0)
+                })
+                return
+            }
+            val range = eq.bandLevelRange
+            call.resolve(JSObject().apply {
+                put("available", true)
+                put("bands", eq.numberOfBands.toInt())
+                put("min", range[0].toInt())
+                put("max", range[1].toInt())
+            })
+        } catch (_: Throwable) {
+            call.resolve(JSObject().apply {
+                put("available", false); put("bands", 0); put("min", 0); put("max", 0)
+            })
+        }
+    }
+
+    /**
+     * 应用音效预设到系统均衡器。
+     * enabled 恒为 true：即使「关闭音效」也调用系统 EQ（全部频段 = 0，flat），
+     * 满足「登录/未登录、有音效/无音效都调用系统均衡器」。
+     */
+    @PluginMethod
+    fun applySystemEqualizer(call: PluginCall) {
+        val arr: JSArray? = try { call.getArray("bands") } catch (_: Throwable) { null }
+        val bass = call.getInt("bass") ?: 0
+        val virtual = call.getInt("virtual") ?: 0
+        try {
+            ensureSystemEq()
+            val eq = sysEq
+            if (eq == null) {
+                call.resolve(JSObject().apply { put("ok", false) })
+                return
+            }
+            val range = eq.bandLevelRange
+            val count = minOf(arr?.length() ?: 0, eq.numberOfBands.toInt())
+            for (i in 0 until count) {
+                val raw = arr?.optInt(i, 0) ?: 0
+                val level = raw.coerceIn(range[0].toInt(), range[1].toInt()).toShort()
+                eq.setBandLevel(i.toShort(), level)
+            }
+            try {
+                sysBass?.setStrength(bass.coerceIn(0, 1000).toShort())
+                sysBass?.enabled = true
+            } catch (_: Throwable) { }
+            try {
+                sysVirtual?.setStrength(virtual.coerceIn(0, 1000).toShort())
+                sysVirtual?.enabled = true
+            } catch (_: Throwable) { }
+            eq.enabled = true
+            call.resolve(JSObject().apply { put("ok", true) })
+        } catch (e: Exception) {
+            call.reject("system eq failed: ${e.message}")
+        }
     }
 
     private fun createChannel() {

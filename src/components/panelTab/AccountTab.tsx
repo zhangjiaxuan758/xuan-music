@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { LogOut, SlidersHorizontal, HardDrive, Trash2, RefreshCw, Crown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import type { AudioQualityPreference, ProviderUser } from '../../types/onlineMus
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../services/onlineMusic/omni';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { checkQualityChange } from '../../services/onlineMusic/audioQualityGate';
 
 interface AccountTabProps {
     user: ProviderUser | null;
@@ -49,9 +50,18 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const clearProviderAccount = useOnlineProviderAccountStore(state => state.clearAccount);
     const activeUser = providerAccount?.user || (activeProviderId === 'netease' ? user : null);
 
-    // 音质不做客户端身份拦截：默认最高档，官方按账号权限自动降级，
-    // 任何档位都可直接切换，实际播放档位以官方返回为准。
+    // 音质按网易云官方真实权限：未登录不能用极高及以上，登录非会员不能用无损及以上。
+    const [qualityHint, setQualityHint] = useState('');
     const handleQualitySelect = (value: AudioQualityPreference) => {
+        const vipType = (activeUser as any)?.vipType;
+        const gate = checkQualityChange(value, Number(vipType ?? 0) > 0);
+        if (!gate.allowed) {
+            setQualityHint(gate.reason === 'login'
+                ? '请先登录网易云账号后再使用该音质'
+                : '该音质为网易云会员专享，当前账号不是会员');
+            return;
+        }
+        setQualityHint('');
         onAudioQualityChange(value);
     };
 
@@ -139,6 +149,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
                 <p className="mt-2 text-[10px] leading-4 opacity-40">
                     {t('account.qualityAutoHint')}
                 </p>
+                {qualityHint && (
+                    <p className="mt-1 text-[10px] leading-4 text-amber-400">{qualityHint}</p>
+                )}
             </div>
 
             {/* Cache Management Section */}

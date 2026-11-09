@@ -2119,10 +2119,13 @@ export default function App() {
         generateAITheme,
     });
     const seekMainAudio = useCallback((time: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = time;
-            if (audioRef.current.paused) {
-                void audioRef.current.play();
+        const audio = audioRef.current;
+        if (audio) {
+            // 跳转前让音频链短暂静音（duck），遮掉解码器残留缓冲产生的电音/杂音。
+            try { window.dispatchEvent(new CustomEvent('xuan:audio-pre-seek')); } catch { /* noop */ }
+            audio.currentTime = time;
+            if (audio.paused) {
+                void audio.play();
                 setPlayerState(PlayerState.PLAYING);
             }
             void publishStagePlayerPlaybackUpdate();

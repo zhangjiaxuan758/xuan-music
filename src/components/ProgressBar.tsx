@@ -69,7 +69,9 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
     // 直接按手指/鼠标的横向位置换算进度：点一下立刻跳，不用等 input 事件，
     // 也不会再出现「点好几次 / 等半天」的情况。拖动时按帧节流。
-    const seekToClientX = useCallback((clientX: number) => {
+    // commit=false 只更新进度条视觉；拖动过程中绝不写 audio.currentTime，
+    // 否则每帧 seek 会让解码器/DSP 缓冲反复重置，出现「电音 / 杂音」。
+    const seekToClientX = useCallback((clientX: number, commit: boolean) => {
         const track = trackRef.current;
         if (!track || duration <= 0) return;
         const rect = track.getBoundingClientRect();
@@ -77,7 +79,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
         const nextTime = ratio * duration;
         updateUI(nextTime, false, true, true);
-        onSeek(nextTime);
+        if (commit) onSeek(nextTime);
     }, [duration, onSeek, updateUI]);
 
     const rafSeekRef = useRef<number | null>(null);
@@ -89,7 +91,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         rafSeekRef.current = requestAnimationFrame(() => {
             rafSeekRef.current = null;
             const x = pendingSeekXRef.current;
-            if (x != null) seekToClientX(x);
+            if (x != null) seekToClientX(x, false);
         });
     };
 
@@ -120,7 +122,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!isDraggingRef.current) return;
         isDraggingRef.current = false;
-        seekToClientX(e.clientX);
+        // 松手时一次性提交最终位置（真正 seek 只发生这一次）
+        seekToClientX(e.clientX, true);
         if (e.currentTarget.hasPointerCapture(e.pointerId)) {
             e.currentTarget.releasePointerCapture(e.pointerId);
         }

@@ -1,3 +1,4 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
 // 小轩音乐 · 音效引擎 v2（7 种固定预设 · 完整动态/谐波管理链路）
 // --------------------------------------------------------------------
 // 链路拓扑（对齐用户规格）：
@@ -411,11 +412,12 @@ const applySettings = (settings: XuanAudioEffectSettings) => {
     appliedPreset = presetId;
     const data: XuanEffectPresetData | null = presetId === 'off' ? null : XUAN_EFFECT_PRESET_DATA[presetId];
     try {
-        // 音效关闭时 100% 走直通旁路，彻底绕开限幅器 / EQ / 压缩 / M-S 展宽。
-        // 旧实现把整条链常驻：未开音效也会被 -1dBFS 砖墙削波（破音），
-        // 并经过 M/S 重编码与多级 Biquad（糊感）。交叉渐变避免切换爆音。
-        smooth(nodes.dryGain.gain, data ? 0 : 1);
-        smooth(nodes.wetGain.gain, data ? 1 : 0);
+        // 系统均衡器可用时，音效全部交给 Android 原生 Equalizer / BassBoost /
+        // Virtualizer，Web Audio 链 100% 旁路（不叠加、不二次处理）。
+        // 否则按原有 dry/wet 逻辑：音效关闭时全直通，开启时走 DSP 链。
+        const systemBypass = systemEqAvailable;
+        smooth(nodes.dryGain.gain, systemBypass ? 1 : (data ? 0 : 1));
+        smooth(nodes.wetGain.gain, systemBypass ? 0 : (data ? 1 : 0));
 
         // 前置 headroom
         smooth(nodes.pre.gain, data ? dB2gain(data.headroomDb) : 1);
@@ -520,7 +522,10 @@ const applySettings = (settings: XuanAudioEffectSettings) => {
 
 if (typeof window !== 'undefined') {
     const reapply = (detail?: XuanAudioEffectSettings) => {
-        applySettings(detail || readXuanAudioEffects());
+        const settings = detail || readXuanAudioEffects();
+        applySettings(settings);
+        // 有无音效都调用系统均衡器（关闭时下发 flat 预设），登录态无关。
+        pushSystemEqualizer(settings);
         if (activeContext && activeContext.state === 'suspended') {
             void activeContext.resume().catch(() => { });
         }
@@ -652,3 +657,108 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
     applySettings(readXuanAudioEffects());
     return input;
 };
+
+
+// ---------------------------------------------------------------- 系统均衡器（Android 原生）
+// 用户要求：超重低音等音效「完全调用系统的均衡器」；登录/未登录、有音效/无音效
+// 都走系统 EQ（关闭时下发 flat 全 0 预设，保持同一条系统音频链）。
+interface XuanSystemEqPlugin {
+    getSystemEqStatus(): Promise<{ available: boolean; bands: number; min: number; max: number }>;
+    applySystemEqualizer(opts: {
+        enabled: boolean; preset: string; bands: number[]; bass: number; virtual: number;
+    }): Promise<{ ok: boolean }>;
+}
+
+let systemEqReady = false;
+let systemEqAvailable = false;
+let systemEqBands = 5;
+let systemEqRange = 1500;       // ±1500 mB（由原生 bandLevelRange 覆盖）
+let seekDuckNode: GainNode | null = null;
+
+const systemEqPlugin = (): XuanSystemEqPlugin | null => {
+    if (!Capacitor.isNativePlatform()) return null;
+    try { return registerPlugin<XuanSystemEqPlugin>('XuanNative'); } catch { return null; }
+};
+
+/** 7 种预设 → 系统 5 段均衡器(millibels) + 低音增强 + 虚拟环绕强度。 */
+const SYSTEM_EQ_TABLE: Record<string, { bands: number[]; bass: number; virtual: number }> = {
+    off:        { bands: [0, 0, 0, 0, 0],             bass: 0,   virtual: 0 },
+    superBass:  { bands: [1200, 700, -300, -150, 100], bass: 850, virtual: 0 },
+    surround3d: { bands: [-200, -150, 0, 150, 250],   bass: 100, virtual: 750 },
+    panoramic:  { bands: [150, 0, -100, 100, 350],    bass: 200, virtual: 900 },
+    hdVocal:    { bands: [-250, -100, 400, 600, 350], bass: 0,   virtual: 150 },
+    clearVocal: { bands: [-300, -150, 250, 500, 200], bass: 0,   virtual: 100 },
+    hifiLive:   { bands: [350, 150, -100, 200, 450],  bass: 300, virtual: 600 },
+    immersive:  { bands: [600, 300, -150, 250, 500],  bass: 500, virtual: 950 },
+};
+
+const clampBand = (v: number): number =>
+    Math.max(-systemEqRange, Math.min(systemEqRange, Math.round(v || 0)));
+
+/**
+ * 把当前音效设置下发到系统均衡器。
+ * enabled 恒为 true：即使「关闭音效」也调用系统 EQ，只是全部频段为 0（flat）。
+ */
+export const pushSystemEqualizer = (settings?: XuanAudioEffectSettings): void => {
+    const plugin = systemEqPlugin();
+    if (!plugin) return;
+    const s = settings || readXuanAudioEffects();
+    const presetId = s.enabled && s.preset !== 'off' ? s.preset : 'off';
+    const table = SYSTEM_EQ_TABLE[presetId] || SYSTEM_EQ_TABLE.off;
+    const wanted = table.bands;
+    const bands: number[] = [];
+    for (let i = 0; i < systemEqBands; i++) {
+        bands.push(clampBand(wanted[Math.min(i, wanted.length - 1)] ?? 0));
+    }
+    void plugin.applySystemEqualizer({
+        enabled: true,
+        preset: presetId,
+        bands,
+        bass: Math.max(0, Math.min(1000, table.bass)),
+        virtual: Math.max(0, Math.min(1000, table.virtual)),
+    }).catch(() => { /* noop */ });
+};
+
+/** 启动时探测系统 EQ 能力并立即下发一次（幂等，失败允许重试）。 */
+export const initSystemEqualizer = async (): Promise<boolean> => {
+    if (systemEqReady && systemEqAvailable) return true;
+    systemEqReady = true;
+    const plugin = systemEqPlugin();
+    if (!plugin) { systemEqReady = false; return false; }
+    try {
+        const st = await plugin.getSystemEqStatus();
+        systemEqAvailable = Boolean(st?.available);
+        systemEqBands = Math.max(1, Math.min(10, Number(st?.bands) || 5));
+        systemEqRange = Math.max(100, Number(st?.max) || 1500);
+    } catch {
+        systemEqAvailable = false;
+        systemEqReady = false;
+    }
+    try { (window as unknown as { __xuanSystemEq?: boolean }).__xuanSystemEq = systemEqAvailable; } catch { /* noop */ }
+    if (systemEqAvailable) {
+        pushSystemEqualizer();
+        // 已挂好的 Web Audio 链立刻切到旁路，避免与系统 EQ 双重处理
+        applySettings(readXuanAudioEffects());
+    } else {
+        systemEqReady = false;
+    }
+    return systemEqAvailable;
+};
+
+/** 注册 seek 静音节点（由 usePlaybackAudioBridge 调用）。 */
+export const registerSeekDuckNode = (node: GainNode | null): void => { seekDuckNode = node; };
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('xuan:audio-pre-seek', () => {
+        if (!seekDuckNode) return;
+        try {
+            const ctx = seekDuckNode.context;
+            const now = ctx.currentTime;
+            const g = seekDuckNode.gain;
+            g.cancelScheduledValues(now);
+            g.setValueAtTime(g.value, now);
+            g.linearRampToValueAtTime(0.0001, now + 0.010);
+            g.linearRampToValueAtTime(1, now + 0.18);
+        } catch { /* noop */ }
+    });
+}

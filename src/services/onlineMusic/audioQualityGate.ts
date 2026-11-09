@@ -55,11 +55,19 @@ export interface QualityCheckResult {
  * - 无损 / Hi-Res：需要登录且是会员
  */
 export const checkQualityChange = (
-    _quality: AudioQualityPreference,
-    _isVip: boolean | undefined,
+    quality: AudioQualityPreference,
+    isVip: boolean | undefined,
 ): QualityCheckResult => {
-    // 不做客户端身份预判拦截：任何登录态都允许选任意档位，
-    // 官方取链接口会按账号权限自动降级，因此一律放行。
+    // 与网易云官方一致：无损及以上档位必须是登录会员；极高需要登录。
+    // 会员状态未知一律按「非会员」处理，杜绝「没会员也能用无损」。
+    const tier = qualityTier(quality);
+    const loggedIn = isNeteaseLoggedIn();
+    if (tier === 'vip') {
+        if (!loggedIn) return { allowed: false, reason: 'login' };
+        if (isVip !== true) return { allowed: false, reason: 'vip' };
+    } else if (tier === 'login' && !loggedIn) {
+        return { allowed: false, reason: 'login' };
+    }
     return { allowed: true };
 };
 
@@ -94,8 +102,16 @@ export const consumePendingLogin = (): boolean => {
  */
 export const resolveEffectiveQuality = (
     quality: AudioQualityPreference,
-    _isVip: boolean,
-): AudioQualityPreference => normalizeQuality(quality);
+    isVip: boolean,
+): AudioQualityPreference => {
+    const q = normalizeQuality(quality);
+    // 官方对非会员请求 lossless/hires/sky/jymaster 一律降级，
+    // 这里直接从源头压到极高(320k)，不再向官方索取会员档位。
+    if (!isVip && (q === 'lossless' || q === 'hires' || q === 'sky' || q === 'jymaster')) {
+        return 'exhigh';
+    }
+    return q;
+};
 
 /**
  * 用官方 /api/song/enhance/player/url/v1 的返回反推实际音质。
