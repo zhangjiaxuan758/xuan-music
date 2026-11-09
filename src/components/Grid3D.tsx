@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { pushSearchHistory } from '../services/searchHistory';
 import { XUAN_REQUEST_LOGIN_EVENT, XUAN_LOGIN_CONFIRMED_EVENT, consumePendingLogin } from '../services/onlineMusic/audioQualityGate';
 import { useTranslation } from 'react-i18next';
-import { Search, Loader2, Settings } from 'lucide-react';
+import { Search, Loader2, Settings, WifiOff } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { resolveSearchSource, useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { getDeveloperRecommendedSongs } from '../services/onlineMusic/devRecommend';
@@ -33,6 +33,31 @@ import type { MediaId, ProviderCollection, ProviderUser } from '../types/onlineM
 import { supportsLocalMusicImport } from '../platform/runtime';
 
 // src/components/Grid3D.tsx
+
+/**
+ * 榜单 / 开发者推荐的离线静态缓存：有网实时拉取成功后写入 localStorage，
+ * 断网或拉取失败时回退到这里，保证「无网也能看到静态榜单、且缓存歌曲可播」。
+ * 只在内存里兜底，不进 IndexedDB，避免与音频/封面缓存混在一起难以清理。
+ */
+const chartOfflineCacheKey = (kind: 'chart' | 'dev', id: number | string): string =>
+    `xuan_static_${kind}_${id}`;
+
+const writeStaticCache = (kind: 'chart' | 'dev', id: number | string, songs: SongResult[]): void => {
+    try {
+        localStorage.setItem(chartOfflineCacheKey(kind, id), JSON.stringify({ ts: Date.now(), songs }));
+    } catch { /* 配额或隐私模式，忽略 */ }
+};
+
+const readStaticCache = (kind: 'chart' | 'dev', id: number | string): SongResult[] | null => {
+    try {
+        const raw = localStorage.getItem(chartOfflineCacheKey(kind, id));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { songs?: SongResult[] };
+        return Array.isArray(parsed.songs) ? parsed.songs : null;
+    } catch {
+        return null;
+    }
+};
 
 /** 网易云官方 VIP / 付费歌曲判定：以 API 返回的 fee / privilege 为准（不加臆测）。 */
 const isVipSong = (song: SongResult): boolean => {
@@ -379,6 +404,8 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const [loadingDevRecommend, setLoadingDevRecommend] = useState(false);
     const [chartSongs, setChartSongs] = useState<Record<string, SongResult[]>>({});
     const [loadingChart, setLoadingChart] = useState(false);
+    // 断网回退：当前展示的是本地静态缓存（而非官方实时榜单）。
+    const [staticOffline, setStaticOffline] = useState(false);
     const [cacheSongs, setCacheSongs] = useState<SongResult[]>([]);
 
     const isLoading =
@@ -406,8 +433,32 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         if (devRecommendSongs.length > 0) return;
         let cancelled = false;
         setLoadingDevRecommend(true);
+        setStaticOffline(false);
+
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline) {
+            const cached = readStaticCache('dev', 'main');
+            if (cached) {
+                setDevRecommendSongs(cached);
+                setStaticOffline(true);
+            }
+            setLoadingDevRecommend(false);
+            return () => { cancelled = true; };
+        }
+
         getDeveloperRecommendedSongs()
-            .then(songs => { if (!cancelled) setDevRecommendSongs(songs); })
+            .then(songs => {
+                if (!cancelled) setDevRecommendSongs(songs);
+                writeStaticCache('dev', 'main', songs);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                const cached = readStaticCache('dev', 'main');
+                if (cached) {
+                    setDevRecommendSongs(cached);
+                    setStaticOffline(true);
+                }
+            })
             .finally(() => { if (!cancelled) setLoadingDevRecommend(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -430,8 +481,36 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         chartFetchRef.current = key;
         let cancelled = false;
         setLoadingChart(true);
+        setStaticOffline(false);
+
+        // 断网时直接走本地静态缓存，避免无意义的失败请求与报错刷屏。
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline) {
+            const cached = readStaticCache('chart', def?.id ?? chartId);
+            if (cached) {
+                setChartSongs(prev => ({ ...prev, [chartId]: cached }));
+                setStaticOffline(true);
+            }
+            setLoadingChart(false);
+            return () => { cancelled = true; };
+        }
+
         getXuanChartSongs(chartId)
-            .then(songs => { if (!cancelled) setChartSongs(prev => ({ ...prev, [chartId]: songs })); })
+            .then(songs => {
+                if (cancelled) return;
+                setChartSongs(prev => ({ ...prev, [chartId]: songs }));
+                // 有网：把实时榜单写入本地静态缓存，供断网回退。
+                writeStaticCache('chart', def?.id ?? chartId, songs);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                // 拉取失败（断网 / 风控 / 超时）：回退到本地静态缓存。
+                const cached = readStaticCache('chart', def?.id ?? chartId);
+                if (cached) {
+                    setChartSongs(prev => ({ ...prev, [chartId]: cached }));
+                    setStaticOffline(true);
+                }
+            })
             .finally(() => { if (!cancelled) setLoadingChart(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -728,6 +807,14 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     return (
         <div ref={gridRootRef} data-xuan-root className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto backdrop-blur-sm ${bottomPadding}`}>
+
+            {/* 断网回退：当前展示的是本地静态榜单缓存（非官方实时数据）。 */}
+            {staticOffline && isSongListTab && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full text-[11px] bg-black/70 text-white/90 backdrop-blur-md pointer-events-none flex items-center gap-1.5 shadow-lg">
+                    <WifiOff size={12} />
+                    无网络连接 · 已显示离线静态榜单，缓存歌曲可正常播放
+                </div>
+            )}
 
             {/* Main Header Container (Fades out when sliding/interacting) */}
             <div className="transition-opacity duration-300 ease-in-out z-20 opacity-100 select-none">

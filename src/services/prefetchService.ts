@@ -14,8 +14,7 @@ import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } fro
 import type { AudioQualityPreference, MediaId } from '../types/onlineMusic';
 import { getPlaybackSourceRef } from '../utils/appPlaybackGuards';
 import { omni } from './onlineMusic/omni';
-import { getSongResourceCacheKey } from './onlineMusic/resourceKeys';
-import { getSongCacheWithLegacyMigration, hasCachedSongAudio } from './onlineMusic/resourceCache';
+import { getSongAudioCacheKey, getSongCacheWithLegacyMigration, hasCachedSongAudio } from './onlineMusic/resourceCache';
 import { toSafeRemoteUrl } from '../utils/appPlaybackHelpers';
 import { getProviderSongMetadata } from './onlineMusic/songMetadata';
 
@@ -45,7 +44,7 @@ export interface PrefetchedSongData {
 // In-memory prefetch cache (not persisted to IndexedDB to avoid stale URLs)
 const prefetchCache = new Map<string, PrefetchedSongData>();
 
-const getPrefetchSongKey = (song: SongResult): string => getSongResourceCacheKey('audio', song);
+const getPrefetchSongKey = (song: SongResult): string => getSongAudioCacheKey(song);
 
 const touchPrefetchCacheEntry = (songKey: string, data: PrefetchedSongData): PrefetchedSongData => {
     prefetchCache.delete(songKey);

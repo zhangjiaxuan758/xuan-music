@@ -9,6 +9,7 @@ import { formatSongName } from '../utils/songNameFormatter';
 import { getSizedCoverUrl } from '../utils/coverUrl';
 import { getSongCoverUrl } from '../services/onlineMusic/songMetadata';
 import { colorWithAlpha } from './visualizer/colorMix';
+import { CachedCoverImg } from './CachedCoverImg';
 import { saveToCache, getFromCache, removeFromCache } from '../services/db';
 import { omni } from '../services/onlineMusic/omni';
 import { getProviderCacheKey, getProviderCacheWithLegacyMigration } from '../services/onlineMusic/providerStorage';
@@ -251,12 +252,11 @@ export const PolaroidCard = React.memo<{
                 <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-200/60 dark:bg-zinc-800/60 relative shadow-inner flex items-center justify-center shrink-0">
                     {item.coverUrl ? (
                         <>
-                            <img
-                                src={item.coverUrl}
+                            <CachedCoverImg
+                                coverUrl={item.coverUrl}
+                                song={item.rawTrack}
                                 alt={typeof item.name === 'string' ? item.name : ''}
-                                loading="lazy"
-                                decoding="async"
-                                ref={(el) => {
+                                imgRef={(el) => {
                                     if (el && el.complete) {
                                         el.style.opacity = isUnavailable ? '0.3' : '1';
                                         const placeholder = el.nextElementSibling as HTMLElement;
@@ -266,7 +266,7 @@ export const PolaroidCard = React.memo<{
                                         }
                                     }
                                 }}
-                                onLoad={(e) => {
+                                onImgLoad={(e) => {
                                     const img = e.currentTarget;
                                     img.style.opacity = isUnavailable ? '0.3' : '1';
                                     const placeholder = img.nextElementSibling as HTMLElement;

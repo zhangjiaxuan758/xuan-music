@@ -48,7 +48,6 @@ export async function loadOnlineSongAudioSource(
     | { kind: 'restricted'; restriction: NeteasePlaybackRestriction }
     | { kind: 'unavailable' }
 > {
-    const audioCacheKey = getSongResourceCacheKey('audio', song);
     const cachedAudioBlob = await getCachedSongAudioBlob(song);
     if (cachedAudioBlob) {
         const blobUrl = createSafeObjectUrl(cachedAudioBlob);
