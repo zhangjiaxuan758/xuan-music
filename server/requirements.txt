@@ -1,2 +1,0 @@
-# 小轩音乐服务端仅使用 Python 3.9+ 标准库，无第三方依赖。
-# 直接运行：python3 xuan_server.py
