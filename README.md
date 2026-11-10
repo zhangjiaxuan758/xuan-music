@@ -5,7 +5,7 @@
 > 本地环境变量、成品 APK 与编译产物一律未入库。
 >
 > - 仓库：https://github.com/zhangjiaxuan758/xuan-music
-> - 当前版本：客户端 1.6.8（versionCode 10628）
+> - 当前版本：客户端 1.6.9（versionCode 10629）
 > - **本仓库只包含客户端（Android App）与其共用网页前端的脱敏源码**，不含管理端、服务端、网页端源码。
 
 ## 源码结构
