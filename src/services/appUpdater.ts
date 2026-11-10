@@ -26,7 +26,7 @@ export interface MediaOptions {
 // 当前客户端 versionCode；构建脚本会注入真实值
 declare const __XUAN_VERSION_CODE__: number | undefined;
 export const CURRENT_VERSION_CODE: number =
-  (typeof __XUAN_VERSION_CODE__ !== 'undefined' ? __XUAN_VERSION_CODE__ : 10625);
+  (typeof __XUAN_VERSION_CODE__ !== 'undefined' ? __XUAN_VERSION_CODE__ : 10627);
 
 const CHECKED_KEY = 'xuan_update_checked_session';
 

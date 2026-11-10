@@ -31,8 +31,9 @@ export interface XuanConfig {
   effects: { enabled: boolean; bass: number; surround: number; limit: number };
   ui: {
     immersiveDoubleTap: boolean; buttonFadeDuration: number; lyricsFontSize: number;
-    progressShowPrevNext: boolean; webShowPrevNext: boolean; showStatusBarFavorite: boolean;
+    progressShowPrevNext: boolean; showStatusBarFavorite: boolean;
   };
+  announcement: { enabled: boolean; title: string; content: string; id: number };
   texts: Record<string, string>;
   links: { github: string };
   update: { versionCode: number; versionName: string; apkFile: string; changelog: string; force: boolean };
@@ -200,7 +201,9 @@ async function openSSE() {
           const payload = JSON.parse(dataLine);
           if (ev === 'config' && payload.config) applyConfig(payload.config);
           else if (ev === 'config' && payload.version) fetchServerConfig();
-          else if (ev === 'update' && updateListener) updateListener(payload);
+          // 服务端 update 事件只作通知，其载荷字段与 UpdateInfo 不一致；
+          // 重新拉取权威的 checkUpdate，避免更新弹窗拿到 undefined 版本信息。
+          else if (ev === 'update') void checkUpdate(true);
           else if (ev === 'hello' && payload.version && (!cfg || payload.version !== cfg.version)) fetchServerConfig();
         } catch { /* noop */ }
       }

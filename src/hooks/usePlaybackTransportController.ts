@@ -166,7 +166,8 @@ export function usePlaybackTransportController({
                 audio.pause();
             }
             audio.__xuanPausing = false;
-            syncOutputGain(getTargetPlaybackVolume(), 0);
+            // 保持静音直到下一次 resume 淡入；若在 pause 后瞬时把增益拉回目标值，
+            // 解码器残留缓冲会「咔」一声，这就是暂停瞬间杂音的来源。
         }, 240);
         setPlayerState(PlayerState.PAUSED);
     }, [activePlaybackContext, audioRef, audioSrc, currentTime, duration, getSyntheticStageLyricsTime, getTargetPlaybackVolume, isNowPlayingStageActive, setPlayerState, stageActiveEntryKind, stageLyricsClockRef, syncOutputGain, syncStageLyricsClock]);

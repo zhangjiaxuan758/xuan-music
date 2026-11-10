@@ -448,8 +448,15 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
         getDeveloperRecommendedSongs()
             .then(songs => {
-                if (!cancelled) setDevRecommendSongs(songs);
-                writeStaticCache('dev', 'main', songs);
+                if (cancelled) return;
+                if (songs.length > 0) {
+                    setDevRecommendSongs(songs);
+                    writeStaticCache('dev', 'main', songs);
+                } else {
+                    // 在线返回空（风控/超时）：绝不覆盖缓存，回退静态数据
+                    const cached = readStaticCache('dev', 'main');
+                    if (cached?.length) { setDevRecommendSongs(cached); setStaticOffline(true); }
+                }
             })
             .catch(() => {
                 if (cancelled) return;
@@ -498,9 +505,18 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         getXuanChartSongs(chartId)
             .then(songs => {
                 if (cancelled) return;
-                setChartSongs(prev => ({ ...prev, [chartId]: songs }));
-                // 有网：把实时榜单写入本地静态缓存，供断网回退。
-                writeStaticCache('chart', def?.id ?? chartId, songs);
+                if (songs.length > 0) {
+                    setChartSongs(prev => ({ ...prev, [chartId]: songs }));
+                    // 有网且成功：把实时榜单写入本地静态缓存，供断网回退。
+                    writeStaticCache('chart', def?.id ?? chartId, songs);
+                } else {
+                    // 在线返回空（风控/超时/接口异常）：绝不覆盖缓存，回退静态数据
+                    const cached = readStaticCache('chart', def?.id ?? chartId);
+                    if (cached?.length) {
+                        setChartSongs(prev => ({ ...prev, [chartId]: cached }));
+                        setStaticOffline(true);
+                    }
+                }
             })
             .catch(() => {
                 if (cancelled) return;
@@ -674,21 +690,17 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         return [];
     }, [isDevRecommendTab, isChartTab, isCacheTab, homeViewTab, devRecommendSongs, chartSongs, cacheSongs]);
 
-    const songListLabel = isDevRecommendTab
-        ? '开发者推荐'
-        : (chartDefs[homeViewTab]?.name || '缓存音乐');
-
-    const devRecommendCards = useMemo(() => activeSongList.map((song, index) => ({
+    const devRecommendCards = useMemo(() => activeSongList.map((song) => ({
         id: `xuan_song_${song.id}`,
         name: song.name,
         coverUrl: getSongCoverUrl(song, activeProviderId) || '',
         description: song.artists.map(artist => artist.name).filter(Boolean).join(' / '),
-        summary: `${songListLabel} · ${index + 1}`,
+        summary: '',
         type: 'playlist' as const,
         isDevRecommendSong: true,
         vip: isVipSong(song),
         raw: { song, isDevRecommendSong: true },
-    })), [activeSongList, activeProviderId, songListLabel]);
+    })), [activeSongList, activeProviderId]);
 
     // Active tab list items mapping
     const currentDesktopItems = useMemo(() => {
@@ -1002,15 +1014,13 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                         title={
                             isDevRecommendTab
                                 ? '开发者推荐'
-                                : isHotChartTab
-                                    ? '热歌榜'
-                                    : isGufengChartTab
-                                        ? '古风榜'
-                                        : isCacheTab
-                                            ? '缓存'
-                                            : homeViewTab === 'playlist'
-                                                ? t('home.playlists')
-                                                : t('home.radio')
+                                : isChartTab
+                                    ? (chartDefs[homeViewTab]?.name || '榜单')
+                                    : isCacheTab
+                                        ? '缓存'
+                                        : homeViewTab === 'playlist'
+                                            ? t('home.playlists')
+                                            : t('home.radio')
                         }
                         mapButtonLabel={t('home.allAlbums')}
                         items={currentDesktopItems}

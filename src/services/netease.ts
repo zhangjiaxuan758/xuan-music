@@ -141,10 +141,10 @@ const detailIdsAsJson = (raw: string): string =>
 const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   '/login/qr/key': {
     path: '/api/login/qrcode/unikey',
-    // 官方 /login/qrcode/unikey 的设备档位：type=1 网页版（手机确认页显示「网页版/web端」）、
-    // type=3 PC 桌面客户端（显示「登录PC版」）、type=2 移动 / 穿戴设备档位。
-    // 这里用 2，让手机网易云 App 扫码后按移动端授权确认，不再提示 web 端。
-    data: () => ({ type: 2 }),
+    // 官方 /login/qrcode/unikey 的设备档位：type=1 网页版、type=3 PC 桌面客户端。
+    // type=2 是第三方/穿戴设备档，需要额外的 deviceId/appName，缺失时网易云 App
+    // 扫码确认页会显示「登录null」。这里固定用官方网页档 1，确认页文案正常。
+    data: () => ({ type: 1 }),
     wrap: (body) => ({ code: 200, data: { unikey: String(body?.unikey || '') } }),
   },
   '/login/qr/create': {
@@ -158,7 +158,7 @@ const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   },
   '/login/qr/check': {
     path: '/api/login/qrcode/client/login',
-    data: (q) => ({ key: str(q, 'key'), type: 2 }),
+    data: (q) => ({ key: str(q, 'key'), type: 1 }),
     wrap: (body, _q, setCookie) => {
       const result: any = { ...body };
       if (setCookie) result.cookie = mergeCookie(readLoginCookie(), setCookie);

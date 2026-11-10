@@ -297,12 +297,14 @@ export function usePlaybackAudioBridge({
         if (audioSrc && audioRef.current) {
             if (shouldAutoPlayRef.current && !isLyricsLoading) {
                 shouldAutoPlayRef.current = false;
+                // 起爆杂音根因：Web Audio 链（MediaElementSource / 音效节点）在
+                // play() 之后才建立会造成音频通路切换爆音。必须在 play() 前建好。
+                setupAudioAnalyzer();
                 syncOutputGain(0, 0);
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
                     playPromise
                         .then(() => {
-                            setupAudioAnalyzer();
                             syncOutputGain(0, 0);
                             syncOutputGain(getTargetPlaybackVolume(), 0.12);
                             setPlayerState(PlayerState.PLAYING);

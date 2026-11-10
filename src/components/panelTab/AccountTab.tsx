@@ -50,11 +50,17 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const clearProviderAccount = useOnlineProviderAccountStore(state => state.clearAccount);
     const activeUser = providerAccount?.user || (activeProviderId === 'netease' ? user : null);
 
-    // 音质按网易云官方真实权限：未登录不能用极高及以上，登录非会员不能用无损及以上。
+    // 音质按网易云官方真实权限：未登录/非会员最高「极高」，会员才可用无损及以上。
     const [qualityHint, setQualityHint] = useState('');
+    const isVip = Number((activeUser as any)?.vipType ?? 0) > 0;
+    // 实时同步网易云当前账号能使用的最高音质：默认极高（未登录与非会员一致），
+    // 只有会员登录才允许到超清母带；用户手动点选的档位不会被自动改写。
+    const VIP_ONLY: AudioQualityPreference[] = ['lossless', 'hires', 'sky', 'jymaster'];
+    const effectiveQuality: AudioQualityPreference =
+        !isVip && VIP_ONLY.includes(audioQuality) ? 'exhigh' : audioQuality;
+    const maxAvailableLabel = isVip ? '超清母带（会员）' : '极高（当前账号可用最高档）';
     const handleQualitySelect = (value: AudioQualityPreference) => {
-        const vipType = (activeUser as any)?.vipType;
-        const gate = checkQualityChange(value, Number(vipType ?? 0) > 0);
+        const gate = checkQualityChange(value, isVip);
         if (!gate.allowed) {
             setQualityHint(gate.reason === 'login'
                 ? '请先登录网易云账号后再使用该音质'
@@ -135,9 +141,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
                         <button
                             key={option.value}
                             type="button"
-                            aria-pressed={audioQuality === option.value}
+                            aria-pressed={effectiveQuality === option.value}
                             onClick={() => handleQualitySelect(option.value)}
-                            className={`py-1.5 text-[10px] font-medium rounded-lg transition-all ${audioQuality === option.value
+                            className={`py-1.5 text-[10px] font-medium rounded-lg transition-all ${effectiveQuality === option.value
                                 ? 'bg-white/20 shadow-sm'
                                 : 'opacity-40 hover:opacity-100 hover:bg-white/5'
                                 }`}
@@ -146,6 +152,9 @@ const AccountTab: React.FC<AccountTabProps> = ({
                         </button>
                     ))}
                 </div>
+                <p className="mt-2 text-[10px] leading-4 opacity-60">
+                    当前可用：{maxAvailableLabel} · 实时同步网易云账号权限
+                </p>
                 <p className="mt-2 text-[10px] leading-4 opacity-40">
                     {t('account.qualityAutoHint')}
                 </p>

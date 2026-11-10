@@ -1428,7 +1428,8 @@ export const GridView: React.FC<GridViewProps> = ({
                     track.translatedNames?.join(' '),
                 ].filter(Boolean).join(' '),
                 coverUrl: getSongCoverUrl(track),
-                subtitle: String(idx + 1).padStart(2, '0'),
+                // 只显示歌曲名称与歌手，不再显示前面的序号数字。
+                subtitle: '',
                 description: track.artists?.map(a => a.name).join(', '),
                 rawTrack: track,
                 rawTrackIndex: idx,

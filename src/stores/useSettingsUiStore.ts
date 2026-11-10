@@ -145,13 +145,14 @@ export const resolveStoredAudioQuality = (saved: string | null): AudioQuality =>
             return (remote === 'high' ? 'exhigh' : remote) as AudioQuality;
         }
     } catch { /* ignore */ }
-    // 无本地偏好、也无管理端默认档时，直接用官方最高档。
-    return 'jymaster';
+    // 未登录 / 非会员可用最高档为「极高」(exhigh)；不再默认超清母带。
+    // 会员档只在用户手动点击或确认是会员后才使用。
+    return 'exhigh';
 };
 
 const readStoredAudioQuality = (): AudioQuality => {
     if (typeof window === 'undefined') {
-        return 'jymaster';
+        return 'exhigh';
     }
 
     // 一次性迁移：旧版本在「未登录」或登录成功时把 standard 落盘为默认档，
@@ -161,8 +162,10 @@ const readStoredAudioQuality = (): AudioQuality => {
         if (localStorage.getItem('xuan_quality_highest_migrated') !== '1') {
             localStorage.setItem('xuan_quality_highest_migrated', '1');
             const prev = localStorage.getItem('default_audio_quality');
-            if (!prev || prev === 'standard') {
-                localStorage.setItem('default_audio_quality', 'jymaster');
+            // 旧版自动落盘 jymaster（超清母带）会让未登录也显示会员档，
+            // 统一迁移到「极高」；此后用户手动选择的档位不再被改写。
+            if (!prev || prev === 'standard' || prev === 'jymaster') {
+                localStorage.setItem('default_audio_quality', 'exhigh');
             }
         }
     } catch { /* ignore */ }
@@ -1462,6 +1465,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     setIsUserGuideModalOpen: (isOpen) => set({ isUserGuideModalOpen: isOpen }),
     setStatusSetter: (setter) => set({ statusSetter: setter }),
     setAudioQuality: (quality) => {
+        // 音质切换同样保持系统均衡器链路有效（换源会重建 AudioTrack 会话）。
+        try { void import('../services/audioEffects').then(m => m.pushSystemEqualizer()); } catch { /* noop */ }
         if (typeof window !== 'undefined') {
             localStorage.setItem('default_audio_quality', quality);
         }

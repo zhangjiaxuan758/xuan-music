@@ -28,6 +28,7 @@ import {
 import { clearSessionValues, putSessionValue, readSession } from './repositories/sessionRepository';
 import { readThemeRegistryEntries, writeThemeRegistryEntries } from './repositories/themeRegistryRepository';
 import { clearCoverAssets, getCoverAssetUsage } from './binaryAssetStore';
+import { clearStartupStaticCaches } from './startupCacheWarmup';
 
 // src/services/db.ts
 // Keeps the historical storage API stable while delegating every IndexedDB operation to Dexie repositories.
@@ -171,7 +172,10 @@ export const clearCacheByCategory = async (category: CacheCategory): Promise<voi
     if (category === 'media' && hasElectronAudioCacheBridge()) {
       await window.electron!.clearAudioCache();
     }
-    if (category === 'cover') await clearCoverAssets();
+    if (category === 'cover') {
+      await clearCoverAssets();
+      await clearStartupStaticCaches();
+    }
   } catch (error) {
     console.error('Failed to clear cache by category', error);
   }
@@ -225,6 +229,7 @@ export const clearAllData = async (): Promise<void> => {
   try {
     if (hasElectronAudioCacheBridge()) await window.electron!.clearAudioCache();
     await clearCoverAssets();
+    await clearStartupStaticCaches();
     await appDatabase.delete();
     await appDatabase.open();
   } catch (error) {
