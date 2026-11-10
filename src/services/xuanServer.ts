@@ -37,6 +37,7 @@ export interface XuanConfig {
   texts: Record<string, string>;
   links: { github: string };
   update: { versionCode: number; versionName: string; apkFile: string; changelog: string; force: boolean };
+  updateWindows?: { versionCode: number; versionName: string; exeFile: string; changelog: string; force: boolean };
 }
 
 const isNative = () => Capacitor.isNativePlatform();
@@ -264,8 +265,9 @@ export async function eapiRequest(apiPath: string, data: Record<string, unknown>
 }
 
 // ---------------------------------------------------------------- 更新检查
-export async function checkUpdate(notify = true): Promise<UpdateInfo | null> {
-  const r = await signedRequest<UpdateInfo & { ok: boolean }>('GET', '/api/update/check');
+export async function checkUpdate(notify = true, platform: 'android' | 'windows' = 'android'): Promise<UpdateInfo | null> {
+  const path = platform === 'windows' ? '/api/update/check-win' : '/api/update/check';
+  const r = await signedRequest<UpdateInfo & { ok: boolean }>('GET', path);
   if (!r || !r.ok) return null;
   const info: UpdateInfo = {
     versionCode: r.versionCode, versionName: r.versionName,

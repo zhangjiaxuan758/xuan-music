@@ -31,6 +31,11 @@ const DEVICE_HEADER: Record<string, string> = {
   resolution: '1920x1080',
   mobilename: '',
 };
+// 桌面版由 Electron preload 注入 __xuanDesktop=true；安卓端没有该标记。
+const isDesktopRuntime = (): boolean =>
+  typeof window !== 'undefined' && (window as unknown as { __xuanDesktop?: boolean }).__xuanDesktop === true;
+const qrLoginType = (): number => (isDesktopRuntime() ? 3 : 1);
+
 const LOGIN_COOKIE_KEYS = ['MUSIC_U', 'MUSIC_A', 'MUSIC_R_T', 'MUSIC_R_TT', 'MUSIC_A_T', 'MUSIC_A_REFRESH', '__csrf', 'NMTID', 'MUSIC_A_SK'];
 
 const readLoginCookie = (): string =>
@@ -141,10 +146,10 @@ const detailIdsAsJson = (raw: string): string =>
 const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   '/login/qr/key': {
     path: '/api/login/qrcode/unikey',
-    // 官方 /login/qrcode/unikey 的设备档位：type=1 网页版、type=3 PC 桌面客户端。
-    // type=2 是第三方/穿戴设备档，需要额外的 deviceId/appName，缺失时网易云 App
-    // 扫码确认页会显示「登录null」。这里固定用官方网页档 1，确认页文案正常。
-    data: () => ({ type: 1 }),
+    // 官方 /login/qrcode/unikey 设备档位：type=1 网页版、type=3 PC 桌面客户端。
+    // type=2 是第三方/穿戴设备档，缺 deviceId/appName 会让确认页显示「登录null」。
+    // 桌面版（preload 注入 __xuanDesktop）走 3，网易云 App 确认页显示「登录PC端」。
+    data: () => ({ type: qrLoginType() }),
     wrap: (body) => ({ code: 200, data: { unikey: String(body?.unikey || '') } }),
   },
   '/login/qr/create': {
@@ -158,7 +163,7 @@ const ENDPOINT_MAP: Record<string, EndpointSpec> = {
   },
   '/login/qr/check': {
     path: '/api/login/qrcode/client/login',
-    data: (q) => ({ key: str(q, 'key'), type: 1 }),
+    data: (q) => ({ key: str(q, 'key'), type: qrLoginType() }),
     wrap: (body, _q, setCookie) => {
       const result: any = { ...body };
       if (setCookie) result.cookie = mergeCookie(readLoginCookie(), setCookie);

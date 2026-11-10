@@ -11,6 +11,7 @@ import { useCommandPalette } from './components/command-palette/useCommandPalett
 import AppShell from './components/app/AppShell';
 import Home from './components/app/Home';
 import PlayerPanel from './components/app/PlayerPanel';
+import XuanCppVisualizer from './components/player/XuanCppVisualizer';
 import ThemeQuickEditorHost from './components/panelTab/ThemeQuickEditor';
 import AppDialogs from './components/app/dialogs/AppDialogs';
 import { createCopySongInfoSuccessHandler } from './components/app/dialogs/createCopySongInfoSuccessHandler';
@@ -3266,7 +3267,11 @@ export default function App() {
             <AppOverlays model={appOverlaysModel} />
 
             {currentView === 'player' && !showLyricMatchModal && (
-                <PlayerPanel model={playerPanelModel} />
+                <>
+                    {/* 正在播放页视觉（频谱/波形/光晕/粒子）由 C++ WASM 逐像素渲染，两端共用同一份引擎 */}
+                    <XuanCppVisualizer analyserRef={analyserRef} />
+                    <PlayerPanel model={playerPanelModel} />
+                </>
             )}
 
             <ThemeQuickEditorHost onSaveAiTheme={saveEditedAiDualTheme} onSaveCustomTheme={saveCustomDualTheme} />

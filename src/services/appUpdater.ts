@@ -212,15 +212,32 @@ async function installApk(path: string) {
   try { await XuanNative.installApk({ path }); } catch { /* 用户可稍后手动安装 */ }
 }
 
-/** 启动时调用：仅客户端 App 检查更新，网页端不检查 */
+/** Windows 桌面版由 Electron preload 注入 __xuanDesktop=true；网页端没有该标记。 */
+const isDesktop = (): boolean =>
+  typeof window !== 'undefined' &&
+  (window as unknown as { __xuanDesktop?: boolean }).__xuanDesktop === true;
+
+/** 启动时调用：安卓 App 检查 APK 通道；Windows 桌面版检查 exe 通道；纯网页端不检查。 */
 export async function initAppUpdater() {
-  if (!Capacitor.isNativePlatform()) return;
+  const desktop = isDesktop();
+  if (!Capacitor.isNativePlatform() && !desktop) return;
   try {
     if (sessionStorage.getItem(CHECKED_KEY)) return;   // 本次启动已询问过
   } catch { /* noop */ }
   await initXuanServer();
-  const info = await checkUpdate(false);
+  // 桌面版读服务端 updateWindows 段（与安卓 APK 通道完全独立）
+  const info = await checkUpdate(false, desktop ? 'windows' : 'android');
   if (!info || !info.hasApk || info.versionCode <= CURRENT_VERSION_CODE) return;
+  if (desktop) {
+    // exe 无法像 APK 那样静默安装：确认后交给系统默认浏览器下载安装包，
+    // 用户运行 Setup 覆盖安装即可（同 appId、数据保留）。
+    showUpdateDialog(info, () => {
+      void downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe')
+        .then(url => { window.open(url, '_blank'); })
+        .catch(() => { /* noop */ });
+    });
+    return;
+  }
   showUpdateDialog(info, () => { void downloadApk(info); });
 }
 

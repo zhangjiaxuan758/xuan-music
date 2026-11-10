@@ -131,7 +131,7 @@ const readStoredDisableHomeDynamicBackground = (): boolean => {
 
 /** 官方全部档位（含旧值 'high' 兼容）；默认极高（登录免费可用的最高档）。 */
 const ALL_QUALITIES: readonly string[] = [
-    'standard', 'higher', 'exhigh', 'high', 'lossless', 'hires', 'sky', 'jymaster',
+    'standard', 'higher', 'exhigh', 'high', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster',
 ];
 
 export const resolveStoredAudioQuality = (saved: string | null): AudioQuality => {

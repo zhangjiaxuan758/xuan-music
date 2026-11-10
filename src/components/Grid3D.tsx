@@ -8,6 +8,7 @@ import { resolveSearchSource, useSearchNavigationStore } from '../stores/useSear
 import { getDeveloperRecommendedSongs } from '../services/onlineMusic/devRecommend';
 import { getXuanChartSongs, getXuanCharts, type XuanChartId } from '../services/onlineMusic/charts';
 import { getServerConfig, onServerConfigChange } from '../services/xuanServer';
+import { isVipSong } from '../services/onlineMusic/songVip';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import type { LocalLibraryCatalogSnapshot } from '../hooks/useLocalLibraryCatalog';
 import { useShallow } from 'zustand/react/shallow';
@@ -59,15 +60,7 @@ const readStaticCache = (kind: 'chart' | 'dev', id: number | string): SongResult
     }
 };
 
-/** 网易云官方 VIP / 付费歌曲判定：以 API 返回的 fee / privilege 为准（不加臆测）。 */
-const isVipSong = (song: SongResult): boolean => {
-    const raw: any = song as any;
-    const fee = Number(raw?.fee ?? 0);
-    const privilege: any = raw?.privilege || {};
-    const pfee = Number(privilege?.fee ?? 0);
-    return fee === 1 || fee === 4 || pfee === 1 || pfee === 4
-        || Boolean(raw?.payed) || Number(privilege?.plLevel ?? 0) >= 10;
-};
+// VIP 判定统一走共享工具，避免各列表判定不一致导致小图标时有时无。
 // Glassmorphic interactive desktop home view replacing the legacy 3D carousel.
 // Supports cover sliding with auto-fading header controls and delegates GridView opening upward.
 

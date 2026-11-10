@@ -18,11 +18,11 @@ export type QualityTier = 'free' | 'login' | 'vip';
 
 /**
  * 官方全部档位（从高到低）。用户要求：网易云官方 API 支持的所有音质都要能切换。
- * 官方 level：jymaster 超清母带 / sky 沉浸环绕声 / hires Hi-Res / lossless 无损 /
- * exhigh 极高320k / higher 较高192k / standard 标准128k。
+ * 官方 level：jymaster 超清母带 / sky 沉浸环绕声 / jyeffect 高清环绕声 /
+ * hires Hi-Res / lossless 无损 / exhigh 极高320k / higher 较高192k / standard 标准128k。
  */
 export const FULL_QUALITY_CHAIN: AudioQualityPreference[] = [
-    'jymaster', 'sky', 'hires', 'lossless', 'exhigh', 'higher', 'standard',
+    'jymaster', 'sky', 'jyeffect', 'hires', 'lossless', 'exhigh', 'higher', 'standard',
 ];
 
 /** 旧档位值兼容：'high' 是早期"极高320k"的内部写法。 */
@@ -35,7 +35,7 @@ export const normalizeQuality = (quality: AudioQualityPreference): AudioQualityP
  */
 export const qualityTier = (quality: AudioQualityPreference): QualityTier => {
     const q = normalizeQuality(quality);
-    if (q === 'lossless' || q === 'hires' || q === 'sky' || q === 'jymaster') return 'vip';
+    if (q === 'lossless' || q === 'hires' || q === 'jyeffect' || q === 'sky' || q === 'jymaster') return 'vip';
     if (q === 'exhigh') return 'login';
     return 'free';
 };
@@ -107,7 +107,7 @@ export const resolveEffectiveQuality = (
     const q = normalizeQuality(quality);
     // 官方对非会员请求 lossless/hires/sky/jymaster 一律降级，
     // 这里直接从源头压到极高(320k)，不再向官方索取会员档位。
-    if (!isVip && (q === 'lossless' || q === 'hires' || q === 'sky' || q === 'jymaster')) {
+    if (!isVip && (q === 'lossless' || q === 'hires' || q === 'jyeffect' || q === 'sky' || q === 'jymaster')) {
         return 'exhigh';
     }
     return q;
@@ -126,7 +126,7 @@ export const qualityFromOfficialLevel = (
 ): AudioQualityPreference => {
     const lv = String(level || '');
     const ALL: AudioQualityPreference[] = [
-        'standard', 'higher', 'exhigh', 'lossless', 'hires', 'sky', 'jymaster',
+        'standard', 'higher', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster',
     ];
     if (ALL.includes(lv as AudioQualityPreference)) return lv as AudioQualityPreference;
     const rate = Number(br);

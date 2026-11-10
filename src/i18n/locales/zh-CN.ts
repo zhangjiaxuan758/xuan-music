@@ -407,6 +407,7 @@
     "qualityNeedVip": "该音质由网易云官方按会员权益判定，实际档位以官方返回为准",
     "qualityHigher": "较高",
     "qualitySky": "沉浸环绕",
+    "qualityJyeffect": "高清环绕",
     "qualityJymaster": "超清母带",
     "qualityAutoHint": "默认使用官方支持的最高音质，官方按账号权限自动降级；也可手动往下切换",
     "qualityVipNotice": "该音质需要网易云会员，已自动切换到当前可用的最高音质"  },

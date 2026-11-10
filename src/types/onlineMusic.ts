@@ -7,12 +7,12 @@ export type OnlineProviderId = 'netease' | (string & {});
 /**
  * 音质档位（对齐网易云官方 /song/enhance/player/url/v1 的 level 参数）：
  * standard 标准128k / higher 较高192k / exhigh 极高320k / lossless 无损FLAC /
- * hires Hi-Res / sky 沉浸环绕声 / jymaster 超清母带。
+ * hires Hi-Res / jyeffect 高清环绕声 / sky 沉浸环绕声 / jymaster 超清母带。
  * 旧值 'high' 保留兼容（等价 exhigh）。
  */
 export type AudioQualityPreference =
     | 'standard' | 'higher' | 'high' | 'exhigh'
-    | 'lossless' | 'hires' | 'sky' | 'jymaster';
+    | 'lossless' | 'hires' | 'jyeffect' | 'sky' | 'jymaster';
 export type ProviderCatalogEntityKind = 'album' | 'artist' | 'playlist';
 
 export interface ProviderCatalogRef {

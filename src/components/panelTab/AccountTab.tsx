@@ -29,6 +29,7 @@ const AUDIO_QUALITY_OPTIONS: Array<{
     { value: 'exhigh', labelKey: 'account.qualityExhigh' },
     { value: 'lossless', labelKey: 'account.qualityLossless' },
     { value: 'hires', labelKey: 'account.qualityHires' },
+    { value: 'jyeffect', labelKey: 'account.qualityJyeffect' },
     { value: 'sky', labelKey: 'account.qualitySky' },
     { value: 'jymaster', labelKey: 'account.qualityJymaster' },
 ];
@@ -55,7 +56,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const isVip = Number((activeUser as any)?.vipType ?? 0) > 0;
     // 实时同步网易云当前账号能使用的最高音质：默认极高（未登录与非会员一致），
     // 只有会员登录才允许到超清母带；用户手动点选的档位不会被自动改写。
-    const VIP_ONLY: AudioQualityPreference[] = ['lossless', 'hires', 'sky', 'jymaster'];
+    const VIP_ONLY: AudioQualityPreference[] = ['lossless', 'hires', 'jyeffect', 'sky', 'jymaster'];
     const effectiveQuality: AudioQualityPreference =
         !isVip && VIP_ONLY.includes(audioQuality) ? 'exhigh' : audioQuality;
     const maxAvailableLabel = isVip ? '超清母带（会员）' : '极高（当前账号可用最高档）';

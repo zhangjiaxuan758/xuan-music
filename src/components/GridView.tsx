@@ -4,6 +4,7 @@ import { ChevronLeft, Disc, Play, Plus, Loader2, Heart, ListPlus, Pencil, Search
 import { useTranslation } from 'react-i18next';
 import { SongResult, type LocalSong, type StatusMessage, Theme, type UnifiedSong } from '../types';
 import { getSongUnavailableLabel, isSongUnavailable } from '../services/onlineMusic/songAvailability';
+import { isVipSong } from '../services/onlineMusic/songVip';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
 import { formatSongName } from '../utils/songNameFormatter';
 import { getSizedCoverUrl } from '../utils/coverUrl';
@@ -77,6 +78,8 @@ interface GridItem {
     rawTrack?: SongResult;
     rawTrackIndex?: number;
     rawCollection?: any;
+    /** 是否 VIP / 付费歌曲，用于标题前的 VIP 小图标（全列表统一判定）。 */
+    vip?: boolean;
 }
 
 interface GridViewProps {
@@ -324,7 +327,7 @@ export const PolaroidCard = React.memo<{
                         {/* Title */}
                         <div className="group/song-title relative max-w-full">
                             <div className="text-s font-bold tracking-tight opacity-90 max-w-full line-clamp-4 whitespace-normal break-words">
-                                {(item as any).vip && (
+                                {(isVipSong(item.rawTrack) || (item as any).vip) && (
                                     <span className="inline-block align-middle mr-1 mb-[2px] px-[3px] py-[1px] rounded-[3px] border border-[#e0b34c] text-[#e0b34c] text-[8px] font-extrabold leading-none tracking-wider">VIP</span>
                                 )}
                                 {item.name}
@@ -1431,6 +1434,9 @@ export const GridView: React.FC<GridViewProps> = ({
                 // 只显示歌曲名称与歌手，不再显示前面的序号数字。
                 subtitle: '',
                 description: track.artists?.map(a => a.name).join(', '),
+                // 我喜欢的音乐 / 歌单 / 收藏 / 专辑等 tracks 模式列表此前漏了 vip 字段，
+                // 导致 VIP 小图标不显示；这里统一按官方 fee/privilege 判定补齐。
+                vip: isVipSong(track),
                 rawTrack: track,
                 rawTrackIndex: idx,
             };
