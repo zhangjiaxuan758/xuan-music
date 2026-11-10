@@ -1,0 +1,16 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.music.adm',
+  appName: '小轩音乐管理端',
+  webDir: 'dist',
+  backgroundColor: '#fafafa',
+  server: { androidScheme: 'https', hostname: 'localhost', cleartext: true },
+  plugins: {
+    CapacitorHttp: { enabled: true },
+    CapacitorCookies: { enabled: true },
+    SplashScreen: { launchAutoHide: true, launchShowDuration: 700, backgroundColor: '#fafafa', showSpinner: false },
+    StatusBar: { overlaysWebView: false, style: 'DARK', backgroundColor: '#fafafa' },
+  },
+};
+export default config;

@@ -200,7 +200,9 @@ async function openSSE() {
           const payload = JSON.parse(dataLine);
           if (ev === 'config' && payload.config) applyConfig(payload.config);
           else if (ev === 'config' && payload.version) fetchServerConfig();
-          else if (ev === 'update' && updateListener) updateListener(payload);
+          // 服务端 update 事件只作通知，其载荷字段与 UpdateInfo 不一致；
+          // 重新拉取权威的 checkUpdate，避免更新弹窗拿到 undefined 版本信息。
+          else if (ev === 'update') void checkUpdate(true);
           else if (ev === 'hello' && payload.version && (!cfg || payload.version !== cfg.version)) fetchServerConfig();
         } catch { /* noop */ }
       }

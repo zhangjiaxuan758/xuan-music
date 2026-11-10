@@ -43,10 +43,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
 );
 
 let schemaEnsured = false;
+let schemaInFlight: Promise<void> | null = null;
 
-const ensureSchema = async (db: D1Database) => {
-  if (schemaEnsured) return;
-  await db.batch([
+// 缓存进行中的建表 Promise：并发首请求只执行一次 DDL，失败可重试。
+const ensureSchema = (db: D1Database): Promise<void> => {
+  if (schemaEnsured) return Promise.resolve();
+  if (schemaInFlight) return schemaInFlight;
+  schemaInFlight = db.batch([
     db.prepare(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -73,8 +76,13 @@ const ensureSchema = async (db: D1Database) => {
     `),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_themes_updated_at ON themes(updated_at)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_themes_bucket_id ON themes(bucket_id)'),
-  ]);
-  schemaEnsured = true;
+  ]).then(() => {
+    schemaEnsured = true;
+  }).catch(err => {
+    schemaInFlight = null;   // 允许下次请求重试
+    throw err;
+  });
+  return schemaInFlight;
 };
 
 const parseThemeInput = (value: unknown) => {
@@ -392,7 +400,10 @@ api.post('/themes/put', async (c) => {
     return c.json({ ok: false, error: 'invalid_themes' }, 400);
   }
 
-  const validThemes = themes as NonNullable<ReturnType<typeof parseThemeInput>>[];
+  const parsed = themes as NonNullable<ReturnType<typeof parseThemeInput>>[];
+  // 同一批里重复 fingerprint 会让桶 count/hash 被重复累加，先按指纹去重
+  // （保留最后一次出现的版本），与 /themes/get 的 Set 去重口径一致。
+  const validThemes = Array.from(new Map(parsed.map(t => [t.fingerprint, t])).values());
   if (validThemes.length === 0) {
     return c.json({ ok: true, savedCount: 0 });
   }
