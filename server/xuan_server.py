@@ -717,7 +717,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {'error': 'not found'})
             is_asset = '/assets/' in '/' + rel
             cache = 'public, max-age=31536000, immutable' if is_asset else 'no-cache'
-            # 图标类资源一律不缓存，避免浏览器保留旧版 Folia 图标
+            # 图标类资源一律不缓存，避免浏览器保留旧版图标
             if re.search(r'(^|/)(favicon\.(ico|png)|apple-touch-icon\.png|icon\.svg)$', rel, re.I):
                 cache = 'no-store, no-cache, must-revalidate'
             extra = {'Cache-Control': cache}

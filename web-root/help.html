@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
 <title>小轩音乐 · 帮助文档</title>
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=10631">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=10631">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=10631">
 <style>
 :root{--bg:#f6f6f7;--card:#ffffff;--tx:#3a3d43;--tx2:#7c818a;--bd:#e4e5e8;--ac:#6f7480}
 *{box-sizing:border-box}
@@ -27,9 +30,9 @@ h1{font-size:20px;font-weight:600;color:var(--tx);margin:0 0 6px}
 
   <div class="card"><h2>登录</h2><p>打开应用后在首页点「登录网易云账号」，用网易云 App 扫码即可。扫码后如提示环境异常，请确认网络正常后重试；登录态只保存在你自己的设备里。断网时不会丢失登录状态，重新联网后会自动恢复。</p></div>
 
-  <div class="card"><h2>播放与试听</h2><p>未登录也能试听会员歌曲（约 30 秒，以官方实际下发的试听时长为准）。登录普通账号后试听时长与官方一致；开通会员后可播放完整版。若某首歌提示「需要登录」，说明官方对该资源完全未下发试听链接。</p></div>
+  <div class="card"><h2>播放与试听</h2><p>会员歌曲是否提供试听、可听多久，完全由网易云官方按当前请求状态判定，应用按官方返回的实际秒数显示，不写死任何秒数。登录普通账号或开通会员后可播放的时长同样以官方为准；若某首歌提示「需要登录」，说明官方对该资源未下发试听链接。</p></div>
 
-  <div class="card"><h2>音质</h2><p>未登录 / 非会员：自动播放当前账号可用的最高音质，可随时往下切换。会员：可切换官方全部音质档（标准 / 较高 / 极高 / 无损 / Hi-Res / 沉浸环绕 / 超清母带）。实际播放档位以官方返回的码率为准显示。</p></div>
+  <div class="card"><h2>音质</h2><p>未登录、已登录非会员、会员三种状态默认都请求网易云官方支持的最高音质，官方会按账号权限自动降级到可播放的最高档，因此无需手动设置。也可随时切换到较低档位（标准 / 较高 / 极高 / 无损 / Hi-Res / 沉浸环绕 / 超清母带）。实际播放档位以官方返回的 level / 码率为准显示。</p></div>
 
   <div class="card"><h2>音效</h2><p>播放控制栏可开启音效，共 7 种固定预设：超重低音 / 3D 环绕 / 全景环绕 / 高解析人声 / 清澈人声 / HiFi 现场 / 震撼全景。音效实时生效，戴耳机体验更佳。预设参数为本应用独立调校的公开等效实现，非网易云官方参数。</p></div>
 
@@ -53,6 +56,19 @@ document.addEventListener('keydown',function(e){
   if(k==='F12'||k===123||(e.ctrlKey&&e.shiftKey&&(k==='I'||k==='J'||k==='C'))||(e.ctrlKey&&(k==='u'||k==='U'||k==='s'||k==='S')))e.preventDefault();
 },{capture:true});
 })();
+</script>
+<script>
+/* 清理历史 PWA 缓存（旧版本曾缓存 旧版图标），确保标签图标立即更新 */
+try{
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      rs.forEach(function(r){r.unregister()});
+    }).catch(function(){});
+  }
+  if(window.caches&&caches.keys){
+    caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})}).catch(function(){});
+  }
+}catch(e){}
 </script>
 </body>
 </html>
