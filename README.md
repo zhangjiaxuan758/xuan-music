@@ -8,14 +8,37 @@
 > - 当前版本：客户端 1.6.8（versionCode 10628） / 管理端 1.6.4
 > - 四端均为**最新修复版**源码，客户端与网页前端共用根 `src/`。
 
-## 四端源码结构
+## 四端源码直达（点目录名即可进入）
 
-| 端 | 目录 | 技术栈 | 构建 / 部署 |
+本仓库 `main` 分支同时包含四端源码。根目录条目较多，**管理端 / 服务端 / 网页端
+不是独立仓库，而是下面这三个目录**，点开就是完整可构建工程：
+
+| 端 | 直达目录 | 文件数 | 关键源码 |
 | --- | --- | --- | --- |
-| **客户端**（Android App）与**网页前端** | 根 `src/`、`index.html`、`vite.config.ts`、`capacitor.config.ts`、`android/` | Capacitor + React + TypeScript + Vite | `npm install` → `npm run build:capacitor` → `npx cap sync android` → `./gradlew assembleRelease` |
-| **管理端**（下发配置/公告/APK） | `admin/` | Vite + React + TS + Capacitor（独立工程，含 `admin/android/`） | 见 `admin/README.md` |
-| **服务端**（配置下发 + SSE + 更新） | `server/` | Python 3.9+ 单文件，仅标准库 | `python3 server/xuan_server.py`，见 `server/README.md` |
-| **网页端**（官网/下载页静态站） | `web-root/` | 纯静态 HTML + 图标 | 见 `web-root/README.md`；配合根 `vercel.json` / `wrangler.jsonc` / `worker/` / `sync-server/` / `api-ts/` |
+| **管理端** | [`admin/`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/admin) | 103 | `admin/src/App.tsx`（配置页）、`xuanServer.ts`、`admin.css`、`main.tsx`、`admin/android/` 完整壳工程、`package.json` / `package-lock.json`、`public/` 图标 |
+| **服务端** | [`server/`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/server) | 4 | `server/xuan_server.py`（1025 行，配置下发 + SSE + 在线更新）、`deploy_server.sh`、`requirements.txt`、`README.md` |
+| **网页端** | [`web-root/`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/web-root) | 8 | `web-root/index.html`（下载页）、`help.html`、`robots.txt`、`favicon.ico/png`、`apple-touch-icon.png`、`icon.svg`、`README.md` |
+| **客户端**（Android App）与**网页前端** | [`src/`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/src)、[`android/`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/android) | 522 + 92 | 根 `src/` 与 `index.html`、`vite.config.ts`、`capacitor.config.ts`、`android/` |
+
+> 三端源码均为**最新修复版**（客户端 1.6.8 / 管理端 1.6.4），密钥与口令已替换为占位符。
+
+### 三端目录内容清单
+
+- `admin/`：`README.md`、`package.json`、`package-lock.json`、`vite.config.ts`、
+  `tsconfig.json`、`capacitor.config.ts`、`index.html`、`public/`（图标）、
+  `src/`（4 个 TS/TSX + `admin.css`）、`android/`（Gradle 工程、`MainActivity.kt`、资源、`keystore.properties.example`）
+- `server/`：`README.md`、`xuan_server.py`、`deploy_server.sh`、`requirements.txt`
+- `web-root/`：`README.md`、`index.html`、`help.html`、`robots.txt`、
+  `icon.svg`、`favicon.ico`、`favicon.png`、`apple-touch-icon.png`
+
+### 构建 / 部署
+
+| 端 | 命令 |
+| --- | --- |
+| 客户端 / 网页前端 | `npm install` → `npm run build:capacitor` → `npx cap sync android` → `./gradlew assembleRelease` |
+| 管理端 | 见 [`admin/README.md`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/admin/README.md) |
+| 服务端 | `python3 server/xuan_server.py`，见 [`server/README.md`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/server/README.md) |
+| 网页端 | 见 [`web-root/README.md`](https://github.com/zhangjiaxuan758/xuan-music/tree/main/web-root/README.md)；配合根 `vercel.json` / `wrangler.jsonc` |
 
 辅助服务（同属服务端侧，已在仓库中）：`worker/`（Cloudflare Worker）、
 `sync-server/`（云同步 D1）、`api-ts/`（主题生成）、`deploy/`（部署脚本）、`api/`（Serverless 接口）。
@@ -42,7 +65,7 @@
 
 ---
 
-# 客户端 · Android 说明
+## 客户端 · Android 说明
 
 小轩音乐客户端（包名 `com.music.xuan`），基于 Capacitor 的 Android 横屏全屏音乐播放器。
 
