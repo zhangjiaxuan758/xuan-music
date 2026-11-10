@@ -690,21 +690,17 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         return [];
     }, [isDevRecommendTab, isChartTab, isCacheTab, homeViewTab, devRecommendSongs, chartSongs, cacheSongs]);
 
-    const songListLabel = isDevRecommendTab
-        ? '开发者推荐'
-        : (chartDefs[homeViewTab]?.name || '缓存音乐');
-
-    const devRecommendCards = useMemo(() => activeSongList.map((song, index) => ({
+    const devRecommendCards = useMemo(() => activeSongList.map((song) => ({
         id: `xuan_song_${song.id}`,
         name: song.name,
         coverUrl: getSongCoverUrl(song, activeProviderId) || '',
         description: song.artists.map(artist => artist.name).filter(Boolean).join(' / '),
-        summary: `${songListLabel} · ${index + 1}`,
+        summary: '',
         type: 'playlist' as const,
         isDevRecommendSong: true,
         vip: isVipSong(song),
         raw: { song, isDevRecommendSong: true },
-    })), [activeSongList, activeProviderId, songListLabel]);
+    })), [activeSongList, activeProviderId]);
 
     // Active tab list items mapping
     const currentDesktopItems = useMemo(() => {

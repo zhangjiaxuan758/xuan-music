@@ -31,8 +31,9 @@ export interface XuanConfig {
   effects: { enabled: boolean; bass: number; surround: number; limit: number };
   ui: {
     immersiveDoubleTap: boolean; buttonFadeDuration: number; lyricsFontSize: number;
-    progressShowPrevNext: boolean; webShowPrevNext: boolean; showStatusBarFavorite: boolean;
+    progressShowPrevNext: boolean; showStatusBarFavorite: boolean;
   };
+  announcement: { enabled: boolean; title: string; content: string; id: number };
   texts: Record<string, string>;
   links: { github: string };
   update: { versionCode: number; versionName: string; apkFile: string; changelog: string; force: boolean };

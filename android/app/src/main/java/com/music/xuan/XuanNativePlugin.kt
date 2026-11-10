@@ -115,11 +115,16 @@ class XuanNativePlugin : Plugin() {
                 return
             }
             val range = eq.bandLevelRange
+            val freqs = JSArray()
+            for (i in 0 until eq.numberOfBands.toInt()) {
+                freqs.put(eq.getCenterFreq(i.toShort()) / 1000)
+            }
             call.resolve(JSObject().apply {
                 put("available", true)
                 put("bands", eq.numberOfBands.toInt())
                 put("min", range[0].toInt())
                 put("max", range[1].toInt())
+                put("bandFreqs", freqs)
             })
         } catch (_: Throwable) {
             call.resolve(JSObject().apply {

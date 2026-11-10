@@ -38,7 +38,15 @@ const normalizeConfig = (c: Full): Full => {
       showGufengChart: app.showGufengChart ?? true,
       showCache: app.showCache ?? true,
     },
-    tabs: Array.isArray(c.tabs) ? c.tabs : [],
+    tabs: (() => {
+      const list = Array.isArray(c.tabs) ? c.tabs.map(t => ({ ...t })) : [];
+      // 开发者推荐是内置板块：不允许被删除，只通过开关决定是否显示。
+      // 旧配置若被误删，这里自动补回，管理端始终找得到它。
+      if (!list.some(t => t.id === 'devRecommend')) {
+        list.push({ id: 'devRecommend', label: '开发者推荐', visible: true, order: 1 });
+      }
+      return list;
+    })(),
     developerPicks: Array.isArray(c.developerPicks) ? c.developerPicks : [],
     charts: (c.charts && typeof c.charts === 'object') ? c.charts : {},
     quality: { ...q, default: q.default ?? 'exhigh', maxFree: q.maxFree ?? 'exhigh' },
@@ -52,7 +60,6 @@ const normalizeConfig = (c: Full): Full => {
       buttonFadeDuration: ui.buttonFadeDuration ?? 0.15,
       lyricsFontSize: ui.lyricsFontSize ?? 15,
       progressShowPrevNext: ui.progressShowPrevNext ?? true,
-      webShowPrevNext: ui.webShowPrevNext ?? true,
       showStatusBarFavorite: ui.showStatusBarFavorite ?? true,
     },
     texts: c.texts || {},
@@ -148,6 +155,34 @@ export default function App() {
     } else showToast('保存失败，请重试', 'err');
   };
 
+  // 发布公告：内容为空一律不允许；直接保存下发，避免「点了发布但没点保存」导致客户端不弹。
+  const publishAnnouncement = async () => {
+    if (!cfg || !token || busy) return;
+    const content = (cfg.announcement.content || '').trim();
+    if (!content) { showToast('请先输入公告内容', 'err'); return; }
+    const next = JSON.parse(JSON.stringify(cfg)) as Full;
+    next.announcement = { enabled: true, title: '公告', content, id: (Number(cfg.announcement.id) || 0) + 1 };
+    setBusy(true);
+    const res = await adminSaveConfig(token, next);
+    setBusy(false);
+    if (res.ok) {
+      setCfg({ ...next, version: res.version || next.version });
+      dirty.current = false;
+      showToast('公告已发布并实时下发', 'ok');
+    } else showToast('发布失败，请重试', 'err');
+  };
+
+  const withdrawAnnouncement = async () => {
+    if (!cfg || !token || busy) return;
+    const next = JSON.parse(JSON.stringify(cfg)) as Full;
+    next.announcement = { ...next.announcement, enabled: false };
+    setBusy(true);
+    const res = await adminSaveConfig(token, next);
+    setBusy(false);
+    if (res.ok) { setCfg({ ...next, version: res.version || next.version }); showToast('公告已撤回', 'ok'); }
+    else showToast('撤回失败，请重试', 'err');
+  };
+
   const doPickSearch = async () => {
     if (!pickQuery.trim() || pickBusy) return;
     const seq = ++pickSeq.current;
@@ -223,6 +258,12 @@ export default function App() {
         <h2>应用信息</h2>
         <div className="field"><label>应用名称</label><input type="text" value={cfg.app.name} onChange={e => patch(d => { d.app.name = e.target.value; })} /></div>
         <div className="field"><label>副标题</label><input type="text" value={cfg.app.subtitle} onChange={e => patch(d => { d.app.subtitle = e.target.value; })} /></div>
+      </div>
+
+      {/* 板块按钮 */}
+      <div className="card">
+        <h2>板块信息 <span className="hint">顶部 tab 顺序 + 各板块显示开关</span></h2>
+        {/* 板块显示开关（原来错放在「应用信息」里，这里才是它该在的位置） */}
         {([
           ['showDevRecommend', '开发者推荐'], ['showCache', '缓存板块'],
           ...Object.entries(cfg.charts).map(([k, v]) => [('show' + k[0].toUpperCase() + k.slice(1)), v.label] as const),
@@ -235,11 +276,6 @@ export default function App() {
             </label>
           </div>
         ))}
-      </div>
-
-      {/* 板块按钮 */}
-      <div className="card">
-        <h2>板块按钮 <span className="hint">顶部 tab，顺序即显示顺序</span></h2>
         {/* tabs 是排序后的副本，改/删必须按 id 回原数组定位，不能用这里的下标 i */}
         {tabs.map(t => (
           <div className="row" key={t.id}>
@@ -249,7 +285,11 @@ export default function App() {
               <input type="checkbox" checked={t.visible} onChange={e => patch(d => { const it = d.tabs.find(x => x.id === t.id); if (it) it.visible = e.target.checked; })} />
               <span />
             </label>
-            <button className="icon-btn danger" onClick={() => patch(d => { d.tabs = d.tabs.filter(x => x.id !== t.id); })}>✕</button>
+            {/* 内置板块（开发者推荐/榜单/缓存等）不允许删除，只用上面的开关决定是否显示；
+                仅用户自己添加的自定义板块可以移除。 */}
+            {t.id.startsWith('custom-') && (
+              <button className="icon-btn danger" onClick={() => patch(d => { d.tabs = d.tabs.filter(x => x.id !== t.id); })}>✕</button>
+            )}
           </div>
         ))}
         <button className="add-btn" onClick={() => patch(d => {
@@ -374,7 +414,6 @@ export default function App() {
         {([
           ['immersiveDoubleTap', '双击进入沉浸模式'],
           ['progressShowPrevNext', '进度条显示上/下一首'],
-          ['webShowPrevNext', '网页端显示上/下一首'],
           ['showStatusBarFavorite', '状态栏显示收藏按钮（登录后）'],
         ] as const).map(([k, label]) => (
           <div className="field" key={k}>
@@ -401,11 +440,11 @@ export default function App() {
 
       {/* 系统公告 */}
       <div className="card">
-        <h2>系统公告 <span className="hint">发布后用户下次启动（含切回前台）弹出，顶部固定“公告”</span></h2>
+        <h2>系统公告 <span className="hint">未输入内容不能发布；发布即实时下发，用户启动/切回前台弹出</span></h2>
         <div className="field">
           <label>启用公告</label>
           <label className="toggle">
-            <input type="checkbox" checked={!!cfg.announcement.enabled} onChange={e => patch(d => { d.announcement.enabled = e.target.checked; if (e.target.checked && !d.announcement.content) d.announcement.content = ' '; })} />
+            <input type="checkbox" checked={!!cfg.announcement.enabled} onChange={e => patch(d => { d.announcement.enabled = e.target.checked; })} />
             <span />
           </label>
         </div>
@@ -419,8 +458,10 @@ export default function App() {
           />
         </div>
         <div className="row" style={{ gap: 10, marginTop: 4 }}>
-          <button className="btn-primary" type="button" onClick={() => patch(d => { const a = d.announcement; a.enabled = true; a.title = '公告'; a.content = (a.content || '').trim() ? a.content : ' '; a.id = (Number(a.id) || 0) + 1; })}>发布公告</button>
-          <button type="button" onClick={() => patch(d => { d.announcement.enabled = false; })} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text-2)' }}>撤回</button>
+          <button className="btn-primary" type="button" disabled={busy || !(cfg.announcement.content || '').trim()}
+            onClick={() => void publishAnnouncement()}>发布公告</button>
+          <button type="button" disabled={busy} onClick={() => void withdrawAnnouncement()}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text-2)' }}>撤回</button>
         </div>
       </div>
 

@@ -17,6 +17,8 @@ import { createCopySongInfoSuccessHandler } from './components/app/dialogs/creat
 import { buildSettingsDialogModel } from './components/app/dialogs/buildSettingsDialogModel';
 import AppOverlays from './components/app/overlays/AppOverlays';
 import { UserGuideModal } from './components/modal/UserGuideModal';
+import { AnnouncementController } from './components/AnnouncementController';
+import { warmupStartupCaches } from './services/startupCacheWarmup';
 import { USER_GUIDE_AUTO_OPEN_VERSION } from './components/modal/userGuideContent';
 import { buildAppDialogsModel } from './components/app/dialogs/buildAppDialogsModel';
 import { buildHomeModel } from './components/app/home/buildHomeModel';
@@ -169,6 +171,15 @@ export default function App() {
     }, [lastSeenGuideVersion, setLastSeenGuideVersion, setIsUserGuideModalOpen]);
 
     useEffect(() => initializeSyncCoordinator(), []);
+
+    // 进客户端立即缓存歌曲封面与静态资源，不等用户点进开发者推荐/榜单板块。
+    // 管理端配置变化时再强制跑一次，保证新下发的推荐曲目封面也第一时间缓存。
+    useEffect(() => {
+        void warmupStartupCaches();
+        const onCfg = () => { void warmupStartupCaches(true); };
+        window.addEventListener('xuan:server-config', onCfg);
+        return () => window.removeEventListener('xuan:server-config', onCfg);
+    }, []);
 
     const loadNavidromeFavorites = useCallback(async () => {
         if (!navidromeEnabled) {
@@ -3294,6 +3305,7 @@ export default function App() {
 
             <AppDialogs model={appDialogsModel} />
             <UserGuideModal theme={theme} />
+            <AnnouncementController />
         </AppShell>
     );
 }

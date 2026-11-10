@@ -24,11 +24,11 @@ android {
         applicationId "com.music.adm"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.6.3"
+        versionCode 4
+        versionName "1.6.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // 供 appUpdater.ts 在编译期读取，判断是否有新版本
-        buildConfigField "int", "XUAN_VERSION_CODE", "3"
+        buildConfigField "int", "XUAN_VERSION_CODE", "4"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

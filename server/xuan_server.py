@@ -139,7 +139,9 @@ DEFAULT_CONFIG = {
     # 音质策略（管理端统一控制，实时下发；网页端与客户端一起生效）
     # default: 未登录用户默认档（standard=官方匿名可播的最高档）
     # maxFree: 登录非会员自动回落档；autoMax: 取链时自动选该账号可播的最高档
-    "quality": {"default": "jymaster", "maxFree": "jymaster", "autoMax": True,
+    # 未登录 / 非会员可用最高档为「极高」exhigh，两种状态默认一致；
+    # 只有用户手动点选更高档位或确认是会员后才请求会员档。
+    "quality": {"default": "exhigh", "maxFree": "exhigh", "autoMax": True,
                 "allowVipLevels": True},
     # 音效（7 种固定预设，无自定义调节；管理端总开关，实时下发）
     "effects": {"enabled": True, "presets": [
@@ -151,7 +153,6 @@ DEFAULT_CONFIG = {
         "buttonFadeDuration": 0.15,
         "lyricsFontSize": 15,
         "progressShowPrevNext": True,
-        "webShowPrevNext": True,
         "showStatusBarFavorite": True
     },
     "texts": {},
@@ -164,8 +165,8 @@ DEFAULT_CONFIG = {
         "appId": "", "appSecret": "", "privateKey": "", "pubKey": ""
     },
     "update": {
-        "versionCode": 10625,
-        "versionName": "1.6.5",
+        "versionCode": 10628,
+        "versionName": "1.6.8",
         "apkFile": "",
         "changelog": "",
         "force": False
@@ -917,6 +918,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {'error': 'bad json'})
             if not isinstance(new_cfg, dict) or 'tabs' not in new_cfg or 'developerPicks' not in new_cfg:
                 return self._send(400, {'error': '配置结构不完整'})
+            # 公告：开启但没填正文一律视为「未发布」，避免下发空白公告弹窗。
+            ann = new_cfg.get('announcement')
+            if isinstance(ann, dict):
+                ann_content = str(ann.get('content') or '').strip()
+                if not ann_content:
+                    ann['enabled'] = False
+                    ann['content'] = ''
+                else:
+                    ann['content'] = ann_content
             # netease 段：管理端只能改「上游 API host（更换网易云官方 API）」，
             # eapiKey / eapiSalt 等密钥始终以服务端保存的为准，不可经管理端覆写。
             # host 更换后 /api/eapi 代理逐请求读取 CONFIG，立即生效（客户端无需重启/刷新），

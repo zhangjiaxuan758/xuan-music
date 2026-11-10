@@ -265,6 +265,8 @@ interface EffectNodes {
     wetGain: GainNode;
     pre: GainNode;
     eq: BiquadFilterNode[];
+    eqOnly: BiquadFilterNode[];   // 10 段系统曲线回退链（系统 EQ 不可用时真实生效）
+    eqOnlyGain: GainNode;
     glue: DynamicsCompressorNode;
     satDry: GainNode;
     satWet: GainNode;
@@ -416,8 +418,16 @@ const applySettings = (settings: XuanAudioEffectSettings) => {
         // Virtualizer，Web Audio 链 100% 旁路（不叠加、不二次处理）。
         // 否则按原有 dry/wet 逻辑：音效关闭时全直通，开启时走 DSP 链。
         const systemBypass = systemEqAvailable;
-        smooth(nodes.dryGain.gain, systemBypass ? 1 : (data ? 0 : 1));
-        smooth(nodes.wetGain.gain, systemBypass ? 0 : (data ? 1 : 0));
+        // 系统均衡器可用 → Web 链完全直通，音效由 Android 原生 Equalizer /
+        // BassBoost / Virtualizer 真实承担；不可用 → 走 10 段 Web EQ 回退链，
+        // 两种情况都保证「音效真实可用」，且绝不叠加两次增益。
+        const custom = readXuanCustomEq();
+        const table = SYSTEM_EQ_TABLE[presetId] || SYSTEM_EQ_TABLE.off;
+        const curve = custom || table.bands.map(mb => mb / 100);
+        smooth(nodes.dryGain.gain, systemBypass ? 1 : 0);
+        smooth(nodes.wetGain.gain, 0);
+        smooth(nodes.eqOnlyGain.gain, systemBypass ? 0 : 1);
+        nodes.eqOnly.forEach((f, i) => smooth(f.gain, curve[i] ?? 0));
 
         // 前置 headroom
         smooth(nodes.pre.gain, data ? dB2gain(data.headroomDb) : 1);
@@ -579,6 +589,23 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
     let chainTail: AudioNode = pre;
     eq.forEach(f => { chainTail.connect(f); chainTail = f; });
 
+    // ---- 10 段 EQ 回退链：系统 Equalizer 不可用时用它保证音效真实可听。
+    // 与系统「自定义」界面同频段，只做增益、不做压缩/饱和/混响，避免二次染色。
+    const eqOnly = SYSTEM_EQ_FREQUENCIES.map((hz, i) => {
+        const f = ctx.createBiquadFilter();
+        f.type = i === 0 ? 'lowshelf' : (i === SYSTEM_EQ_FREQUENCIES.length - 1 ? 'highshelf' : 'peaking');
+        f.frequency.value = hz;
+        f.Q.value = 0.85;
+        f.gain.value = 0;
+        return f;
+    });
+    const eqOnlyGain = ctx.createGain();
+    eqOnlyGain.gain.value = 0;
+    let eqTail: AudioNode = input;
+    eqOnly.forEach(f => { eqTail.connect(f); eqTail = f; });
+    eqTail.connect(eqOnlyGain);
+    eqOnlyGain.connect(downstream);
+
     // ---- 胶水压缩
     const glue = ctx.createDynamicsCompressor();
     glue.threshold.value = 0;
@@ -643,7 +670,7 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
     ceiling.connect(wetGain);
 
     activeNodes = {
-        input, pre, eq, glue, satDry, satWet, shaper,
+        input, pre, eq, eqOnly, eqOnlyGain, glue, satDry, satWet, shaper,
         splitter, midSum, sideSum, sideWidth, midSideInv, merger,
         spaceDry: null as unknown as GainNode,
         pannerL: null, pannerR: null, spinOscs: [],
@@ -663,7 +690,9 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
 // 用户要求：超重低音等音效「完全调用系统的均衡器」；登录/未登录、有音效/无音效
 // 都走系统 EQ（关闭时下发 flat 全 0 预设，保持同一条系统音频链）。
 interface XuanSystemEqPlugin {
-    getSystemEqStatus(): Promise<{ available: boolean; bands: number; min: number; max: number }>;
+    getSystemEqStatus(): Promise<{
+        available: boolean; bands: number; min: number; max: number; bandFreqs?: number[];
+    }>;
     applySystemEqualizer(opts: {
         enabled: boolean; preset: string; bands: number[]; bass: number; virtual: number;
     }): Promise<{ ok: boolean }>;
@@ -673,6 +702,7 @@ let systemEqReady = false;
 let systemEqAvailable = false;
 let systemEqBands = 5;
 let systemEqRange = 1500;       // ±1500 mB（由原生 bandLevelRange 覆盖）
+let systemEqFreqs: number[] = [];  // 系统各段中心频率(Hz)，用于把 10 段曲线插值到 N 段
 let seekDuckNode: GainNode | null = null;
 
 const systemEqPlugin = (): XuanSystemEqPlugin | null => {
@@ -680,20 +710,72 @@ const systemEqPlugin = (): XuanSystemEqPlugin | null => {
     try { return registerPlugin<XuanSystemEqPlugin>('XuanNative'); } catch { return null; }
 };
 
-/** 7 种预设 → 系统 5 段均衡器(millibels) + 低音增强 + 虚拟环绕强度。 */
+/**
+ * 10 段系统均衡器频段（Hz），与手机系统「自定义」界面一致：
+ * 31 / 62 / 125 / 250 / 500 / 1K / 2K / 4K / 8K / 16K，范围 ±6dB。
+ */
+export const SYSTEM_EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+
+/**
+ * 7 种预设 → 10 段系统均衡器(millibels，1dB=100mB) + 低音增强 + 虚拟环绕强度。
+ * 「超重低音」曲线严格按用户提供的系统均衡器截图：
+ *   +3 / +4 / +6 / +6 / -4 / -4 / +1 / +1 / 0 / 0 dB。
+ */
 const SYSTEM_EQ_TABLE: Record<string, { bands: number[]; bass: number; virtual: number }> = {
-    off:        { bands: [0, 0, 0, 0, 0],             bass: 0,   virtual: 0 },
-    superBass:  { bands: [1200, 700, -300, -150, 100], bass: 850, virtual: 0 },
-    surround3d: { bands: [-200, -150, 0, 150, 250],   bass: 100, virtual: 750 },
-    panoramic:  { bands: [150, 0, -100, 100, 350],    bass: 200, virtual: 900 },
-    hdVocal:    { bands: [-250, -100, 400, 600, 350], bass: 0,   virtual: 150 },
-    clearVocal: { bands: [-300, -150, 250, 500, 200], bass: 0,   virtual: 100 },
-    hifiLive:   { bands: [350, 150, -100, 200, 450],  bass: 300, virtual: 600 },
-    immersive:  { bands: [600, 300, -150, 250, 500],  bass: 500, virtual: 950 },
+    off:        { bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],                 bass: 0,   virtual: 0 },
+    superBass:  { bands: [300, 400, 600, 600, -400, -400, 100, 100, 0, 0], bass: 0,   virtual: 0 },
+    surround3d: { bands: [-100, -100, -200, -250, -100, 150, 250, 250, 150, 100], bass: 100, virtual: 750 },
+    panoramic:  { bands: [150, 100, 0, -100, -100, 150, 250, 350, 300, 200],  bass: 200, virtual: 900 },
+    hdVocal:    { bands: [-250, -200, -300, -250, -100, 400, 600, 450, 300, 200], bass: 0, virtual: 150 },
+    clearVocal: { bands: [-300, -250, -350, -250, -150, 250, 500, 300, 200, 100], bass: 0, virtual: 100 },
+    hifiLive:   { bands: [350, 250, 150, -100, -100, 200, 350, 450, 350, 250],  bass: 300, virtual: 600 },
+    immersive:  { bands: [600, 500, 300, -150, -150, 250, 400, 500, 350, 250],  bass: 500, virtual: 950 },
+};
+
+/** 用户自定义 10 段参数（dB，±6）；null = 使用当前预设曲线。 */
+export const XUAN_CUSTOM_EQ_KEY = 'xuan_custom_eq_bands';
+export const readXuanCustomEq = (): number[] | null => {
+    try {
+        const raw = localStorage.getItem(XUAN_CUSTOM_EQ_KEY);
+        if (!raw) return null;
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr) || arr.length !== SYSTEM_EQ_FREQUENCIES.length) return null;
+        return arr.map((v: unknown) => Math.max(-6, Math.min(6, Number(v) || 0)));
+    } catch { return null; }
+};
+export const writeXuanCustomEq = (bands: number[] | null): void => {
+    try {
+        if (!bands) localStorage.removeItem(XUAN_CUSTOM_EQ_KEY);
+        else localStorage.setItem(XUAN_CUSTOM_EQ_KEY, JSON.stringify(
+            SYSTEM_EQ_FREQUENCIES.map((_, i) => Math.max(-6, Math.min(6, Number(bands[i]) || 0)))));
+    } catch { /* ignore */ }
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(XUAN_EFFECT_CHANGE_EVENT, { detail: readXuanAudioEffects() }));
+    }
 };
 
 const clampBand = (v: number): number =>
     Math.max(-systemEqRange, Math.min(systemEqRange, Math.round(v || 0)));
+
+/**
+ * 把 10 段曲线插值到系统 Equalizer 的实际频段（多数设备只有 5 段）。
+ * 采用对数频率轴线性插值，保证低频提升能落到 60/230Hz 这类系统段上。
+ */
+const interpolateEqCurve = (curve: number[], freqs?: number[]): number[] => {
+    const target = (freqs && freqs.length) ? freqs : SYSTEM_EQ_FREQUENCIES;
+    const out: number[] = [];
+    for (const f of target) {
+        const hz = Math.max(20, Number(f) || 1000);
+        let i = 0;
+        while (i < SYSTEM_EQ_FREQUENCIES.length - 2 && SYSTEM_EQ_FREQUENCIES[i + 1] < hz) i += 1;
+        const f0 = SYSTEM_EQ_FREQUENCIES[i];
+        const f1 = SYSTEM_EQ_FREQUENCIES[i + 1];
+        const ratio = Math.max(0, Math.min(1,
+            (Math.log(hz) - Math.log(f0)) / Math.max(1e-6, Math.log(f1) - Math.log(f0))));
+        out.push(clampBand((curve[i] ?? 0) * (1 - ratio) + (curve[i + 1] ?? 0) * ratio));
+    }
+    return out;
+};
 
 /**
  * 把当前音效设置下发到系统均衡器。
@@ -705,11 +787,11 @@ export const pushSystemEqualizer = (settings?: XuanAudioEffectSettings): void =>
     const s = settings || readXuanAudioEffects();
     const presetId = s.enabled && s.preset !== 'off' ? s.preset : 'off';
     const table = SYSTEM_EQ_TABLE[presetId] || SYSTEM_EQ_TABLE.off;
-    const wanted = table.bands;
-    const bands: number[] = [];
-    for (let i = 0; i < systemEqBands; i++) {
-        bands.push(clampBand(wanted[Math.min(i, wanted.length - 1)] ?? 0));
-    }
+    const custom = readXuanCustomEq();
+    const wanted = custom ? custom.map(db => Math.round(db * 100)) : table.bands;
+    let bands = interpolateEqCurve(wanted, systemEqFreqs.length ? systemEqFreqs : undefined);
+    if (bands.length > systemEqBands) bands = bands.slice(0, systemEqBands);
+    while (bands.length < systemEqBands) bands.push(0);
     void plugin.applySystemEqualizer({
         enabled: true,
         preset: presetId,
@@ -730,6 +812,7 @@ export const initSystemEqualizer = async (): Promise<boolean> => {
         systemEqAvailable = Boolean(st?.available);
         systemEqBands = Math.max(1, Math.min(10, Number(st?.bands) || 5));
         systemEqRange = Math.max(100, Number(st?.max) || 1500);
+        systemEqFreqs = Array.isArray(st?.bandFreqs) ? st!.bandFreqs!.map(Number) : [];
     } catch {
         systemEqAvailable = false;
         systemEqReady = false;

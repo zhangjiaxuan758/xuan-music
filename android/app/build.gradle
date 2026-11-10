@@ -1,6 +1,6 @@
 import groovy.json.JsonSlurper
 
-// 当前文件：Folia Android 应用版本、SDK 与可选发布签名配置。
+// 当前文件：小轩音乐客户端 Android 应用版本、SDK 与可选发布签名配置。
 
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
@@ -24,11 +24,11 @@ android {
         applicationId "com.music.xuan"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10627
-        versionName "1.6.7"
+        versionCode 10628
+        versionName "1.6.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // 供 appUpdater.ts 在编译期读取，判断是否有新版本
-        buildConfigField "int", "XUAN_VERSION_CODE", "10627"
+        buildConfigField "int", "XUAN_VERSION_CODE", "10628"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
