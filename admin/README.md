@@ -35,7 +35,9 @@ cd android
 
 | 占位符 | 位置 | 说明 |
 | --- | --- | --- |
-| `__PLACEHOLDER_ADMIN_PASSWORD__` | `src/xuanServer.ts` / `server/deploy_server.sh` | 首次部署的管理口令 |
-| `__PLACEHOLDER_SERVER_BASE__` | `src/xuanServer.ts` | 服务端地址 |
+| `__PLACEHOLDER_ADMIN_PASSWORD__` | `server/deploy_server.sh` | 首次部署的管理口令 |
+
+另外，`src/xuanServer.ts` 第 15 行的 `XUAN_SERVER` 是服务端域名常量（公开地址，非占位符），
+部署到自己的域名时改成自己的服务端地址即可。
 
 配套源码：客户端见仓库根 `src/`，服务端见 `server/`，网页端见 `web-root/`。

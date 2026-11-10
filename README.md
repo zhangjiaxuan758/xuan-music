@@ -20,13 +20,13 @@
 辅助服务（同属服务端侧，已在仓库中）：`worker/`（Cloudflare Worker）、
 `sync-server/`（云同步 D1）、`api-ts/`（主题生成）、`deploy/`（部署脚本）、`api/`（Serverless 接口）。
 
-## 需要自行补齐的占位符
+## 需要自行补齐的占位符与配置
 
-| 位置 | 占位符 | 说明 |
+| 位置 | 占位符 / 配置 | 说明 |
 | --- | --- | --- |
 | `src/services/netease.ts` | `__PLACEHOLDER_NETEASE_EAPI_KEY__` / `__PLACEHOLDER_NETEASE_EAPI_SALT__` | 网易云 eapi 公开协议常量，官方网页 JS 中可查 |
 | `server/xuan_server.py` | `__PLACEHOLDER_ADMIN_PASSWORD__` / 上述 eapi 常量 | 管理口令与服务端密钥 |
-| `admin/src/xuanServer.ts` | `__PLACEHOLDER_SERVER_BASE__` / 口令 | 服务端地址与首次部署口令 |
+| `admin/src/xuanServer.ts` | `XUAN_SERVER` 域名常量（公开地址，非占位符） | 换成你自己的服务端地址 |
 | `.env.local` | 见 `.env.example` | 本地配置，不入库 |
 | 签名 | 自备 `.jks` + `keystore.properties`（参考 `.example`） | 发布 APK 需自己的签名证书 |
 
