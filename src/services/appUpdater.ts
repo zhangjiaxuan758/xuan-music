@@ -7,9 +7,12 @@
  * 覆盖安装：新 APK 与旧版同包名 com.music.xuan、同一签名密钥，
  * Android 系统会直接升级覆盖，不会出现两个软件。
  * 更新地址与所有接口均走 https://music.jrr.lol。
+ *
+ * 下载通道：优先 WebView fetch 流式下载（有进度、内存友好）；失败时回退到
+ * CapacitorHttp（原生 HTTP，与取票据同一 UA，不受 WebView CORS / UA 差异影响）。
  */
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core';
 import { checkUpdate, downloadUrl, initXuanServer, type UpdateInfo } from './xuanServer';
 
 const XuanNative = registerPlugin<{
@@ -26,7 +29,10 @@ export interface MediaOptions {
 // 当前客户端 versionCode；构建脚本会注入真实值
 declare const __XUAN_VERSION_CODE__: number | undefined;
 export const CURRENT_VERSION_CODE: number =
-  (typeof __XUAN_VERSION_CODE__ !== 'undefined' ? __XUAN_VERSION_CODE__ : 10627);
+  (typeof __XUAN_VERSION_CODE__ !== 'undefined' ? __XUAN_VERSION_CODE__ : 10629);
+
+// 管理端「更新说明」留空时的兜底文案（服务端也会下发同一默认值）
+export const DEFAULT_CHANGELOG = '修复已知问题，请尽快更新';
 
 const CHECKED_KEY = 'xuan_update_checked_session';
 
@@ -58,7 +64,7 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
   const desc = el('div', {
     fontSize: '13px', color: '#d0d0d4', lineHeight: '1.7', marginBottom: '24px',
     maxHeight: '150px', overflowY: 'auto', whiteSpace: 'pre-wrap',
-  }, info.changelog || '修复若干问题，建议更新。');
+  }, (info.changelog || '').trim() || DEFAULT_CHANGELOG);
 
   const row = el('div', { display: 'flex', gap: '12px', justifyContent: 'flex-end' });
   const btn = (label: string, primary: boolean, cb: () => void) => {
@@ -87,7 +93,12 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
   document.body.append(overlay);
 }
 
-function showProgressDialog(): { set: (pct: number, text: string) => void; done: (ok: boolean, install: () => void) => void } {
+interface ProgressUI {
+  set: (pct: number, text: string) => void;
+  done: (ok: boolean, install: () => void, errMsg?: string) => void;
+}
+
+function showProgressDialog(): ProgressUI {
   const overlay = el('div', {
     position: 'fixed', inset: '0', zIndex: '99999', display: 'flex',
     alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)',
@@ -108,9 +119,11 @@ function showProgressDialog(): { set: (pct: number, text: string) => void; done:
 
   return {
     set: (pct, text) => { fill.style.width = `${Math.min(100, Math.max(0, pct))}%`; label.textContent = text; },
-    done: (ok, install) => {
+    done: (ok, install, errMsg) => {
       title.textContent = ok ? '下载完成' : '下载失败';
-      label.textContent = ok ? '点击下方按钮安装，安装后即为新版本' : '请检查网络后重试';
+      label.textContent = ok
+        ? '点击下方按钮安装，安装后即为新版本'
+        : (errMsg ? `原因：${errMsg}（请检查网络后重试）` : '请检查网络后重试');
       const b = el('button', {
         marginTop: '20px', width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
         background: ok ? '#f2f2f3' : 'rgba(255,255,255,.10)',
@@ -122,35 +135,63 @@ function showProgressDialog(): { set: (pct: number, text: string) => void; done:
   };
 }
 
+/** WebView fetch 流式下载（有进度、内存友好） */
+async function fetchApkBytes(url: string, ui: ProgressUI): Promise<Uint8Array> {
+  const res = await fetch(url, { credentials: 'omit', cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length') || 0);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('不支持流式下载');
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    const pct = total ? (received / total) * 100 : Math.min(95, received / 300000);
+    ui.set(pct, `已下载 ${(received / 1048576).toFixed(1)} MB${total ? ` / ${(total / 1048576).toFixed(1)} MB` : ''}`);
+  }
+  const all = new Uint8Array(received);
+  let off = 0;
+  for (const c of chunks) { all.set(c, off); off += c.length; }
+  return all;
+}
+
+/** 兜底：CapacitorHttp 原生下载，与取票据同一 UA，不受 WebView CORS / UA 差异影响 */
+async function nativeFallbackBytes(url: string, ui: ProgressUI): Promise<Uint8Array> {
+  ui.set(30, '切换原生通道下载…');
+  const r = await CapacitorHttp.request({
+    method: 'GET', url, responseType: 'blob',
+    connectTimeout: 30000, readTimeout: 180000,
+  });
+  if (r.status < 200 || r.status >= 300) throw new Error(`HTTP ${r.status}（原生通道）`);
+  const b64 = typeof r.data === 'string' ? r.data : '';
+  if (!b64) throw new Error('原生通道返回为空');
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 async function downloadApk(info: UpdateInfo) {
   const ui = showProgressDialog();
   try {
     const url = await downloadUrl(info.downloadUrl || '/download/xuan-music.apk');
-    // 原生层用 CapacitorHttp 下载到应用私有目录，避免 WebView 大文件内存问题
-    const res = await fetch(url, { credentials: 'omit', cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const total = Number(res.headers.get('content-length') || 0);
-    const reader = res.body?.getReader();
-    if (!reader) throw new Error('stream unsupported');
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      const pct = total ? (received / total) * 100 : Math.min(95, received / 300000);
-      ui.set(pct, `已下载 ${(received / 1048576).toFixed(1)} MB${total ? ` / ${(total / 1048576).toFixed(1)} MB` : ''}`);
+    let bytes: Uint8Array;
+    try {
+      bytes = await fetchApkBytes(url, ui);
+    } catch (e1) {
+      if (!Capacitor.isNativePlatform()) throw e1;
+      bytes = await nativeFallbackBytes(url, ui);
     }
-    const all = new Uint8Array(received);
-    let off = 0;
-    for (const c of chunks) { all.set(c, off); off += c.length; }
-    const blob = new Blob([all], { type: 'application/vnd.android.package-archive' });
+    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.android.package-archive' });
     const path = await writeApkToPrivate(blob);
     ui.set(100, '下载完成');
     ui.done(true, () => { void installApk(path); });
   } catch (e) {
-    ui.done(false, () => {});
+    const msg = e instanceof Error ? e.message : String(e || '未知错误');
+    ui.done(false, () => {}, msg);
   }
 }
 
@@ -161,8 +202,10 @@ async function writeApkToPrivate(blob: Blob): Promise<string> {
     r.onload = () => resolve(String(r.result).split(',')[1] || '');
     r.readAsDataURL(blob);
   });
+  if (!base64) throw new Error('安装包数据为空');
   const r = await (XuanNative as any).saveApk?.({ base64, name: 'xuan-update.apk' });
-  return r?.path || '';
+  if (!r?.path) throw new Error('写入安装包失败');
+  return r.path as string;
 }
 
 async function installApk(path: string) {
