@@ -5,7 +5,7 @@ import type { ReplayGainMode, SongResult, StatusMessage } from '../types';
 import type { LocalSong } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { saveAudioBlob } from '../services/audioCache';
-import { hasCachedSongAudio } from '../services/onlineMusic/resourceCache';
+import { hasCachedSongAudio, getSongAudioCacheKey } from '../services/onlineMusic/resourceCache';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
 import { saveToCache } from '../services/db';
@@ -154,7 +154,7 @@ export function usePlaybackAudioBridge({
         try {
             const blob = await downloadBlobViaNative(audioSrc);
             if (blob.size === 0) return;
-            await saveAudioBlob(getSongResourceCacheKey('audio', currentSong), blob);
+            await saveAudioBlob(getSongAudioCacheKey(currentSong), blob);
             // 记录到首页「缓存」tab（最多 100 首），并通知首页立即刷新。
             try {
                 const raw = localStorage.getItem('xuan_cached_media_songs');

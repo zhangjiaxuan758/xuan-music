@@ -261,6 +261,26 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             return false;
         }
 
+        // 无网络时，在线搜索（网易云 / Navidrome）直接拦截：提示「无网络连接」，
+        // 且不允许真正发起搜索请求。仅本地曲库搜索允许离线使用。
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline && sourceTab !== 'local') {
+            set({
+                searchQuery: trimmedQuery,
+                searchSourceTab: sourceTab,
+                searchReturnView: returnView,
+                isSearchOpen: true,
+                isSearching: false,
+                isLoadingMore: false,
+                searchError: '无网络连接',
+                searchResults: [],
+                offset: 0,
+                hasMore: false,
+                scrollTop: 0,
+            });
+            return false;
+        }
+
         const requestId = get().requestId + 1;
         set({
             searchQuery: trimmedQuery,
@@ -325,6 +345,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             limit,
         } = get();
 
+        // 无网络时不允许在线搜索翻页。
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
         if (
             searchSourceTab === 'local'
             || searchSourceTab === 'navidrome'
@@ -332,6 +355,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             || isSearching
             || isLoadingMore
             || !searchQuery.trim()
+            || (offline && searchSourceTab !== 'local')
         ) {
             return;
         }
