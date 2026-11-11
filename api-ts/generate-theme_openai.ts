@@ -396,7 +396,8 @@ export default async function handler(req: Request) {
         }
 
         const data = await response.json();
-        const content = extractResponseContentText(data.choices[0]?.message);
+        // choices 缺失时 data.choices[0] 会抛 TypeError，与 worker 版保持一致用可选链
+        const content = extractResponseContentText(data.choices?.[0]?.message);
 
         if (!content) {
             throw new Error("Failed to generate theme JSON");

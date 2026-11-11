@@ -9,6 +9,8 @@ import { getSongUnavailableLabel, isSongUnavailable } from '../../../services/on
 import neteaseLogo from '../../../../build/netease-logo.png';
 import { canResolveSongCatalogRef } from '../../../services/onlineMusic/catalogRefs';
 import { getProviderSongMetadata } from '../../../services/onlineMusic/songMetadata';
+import { isVipSong } from '../../../services/onlineMusic/songVip';
+import VipBadge from '../../shared/VipBadge';
 
 // src/components/app/search/SearchResultRow.tsx
 
@@ -92,6 +94,8 @@ const SearchResultRow: React.FC<SearchResultRowProps> = ({
                             className="truncate text-left text-sm font-semibold disabled:cursor-not-allowed"
                             style={{ color: 'var(--text-primary)' }}
                         >
+                            {/* 与「全部」网格一致的 VIP 小图标：会员/付费歌曲在标题前显示 */}
+                            {isVipSong(track) && <VipBadge />}
                             {formatSongName(track)}
                         </button>
                         {isUnavailable && (

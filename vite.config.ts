@@ -67,7 +67,7 @@ function readDevRequestBody(req: import('http').IncomingMessage): Promise<Uint8A
 
 function devLyricProxyPlugin() {
   return {
-    name: 'folia-dev-lyric-proxy',
+    name: 'xuan-dev-lyric-proxy',
     apply: 'serve' as const,
     configureServer(server: ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
@@ -137,7 +137,7 @@ function devLyricProxyPlugin() {
 }
 
 export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig> {
-  const isCapacitorBuild = process.env.FOLIA_BUILD_TARGET === 'capacitor';
+  const isCapacitorBuild = process.env.XUAN_BUILD_TARGET === 'capacitor';
   let commitHash = '';
   if (process.env.VERCEL_GIT_COMMIT_SHA) {
     commitHash = process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 7);
@@ -168,7 +168,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`https://namoe.izuna.top/api/namoe?hash=${commitHash}`, {
+      const res = await fetch(`https://music.jrr.lol/api/commit-name?hash=${commitHash}`, {
         signal: controller.signal
       });
       clearTimeout(timeout);
@@ -187,18 +187,25 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
     throw new Error(`Could not resolve the commit name for ${commitHash}`);
   }
 
-  const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'Realeco';
-  const appReleaseChannel = process.env.APP_RELEASE_CHANNEL?.trim().toLowerCase() || 'realeco';
+  const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || '小轩音乐';
+  const appReleaseChannel = process.env.APP_RELEASE_CHANNEL?.trim().toLowerCase() || 'stable';
   const dockerStackVersion = process.env.DOCKER_STACK_VERSION?.trim() || '';
 
   // 客户端在线更新依赖真实 versionCode：直接以 android/app/build.gradle 为唯一来源注入，
   // 避免前端里写死的兜底值与 APK 版本漂移，导致「装了新版仍反复弹更新」。
   let xuanVersionCode = 10625;
+  let xuanVersionName = '';
   try {
     const gradleText = fs.readFileSync(path.resolve(__dirname, 'android/app/build.gradle'), 'utf-8');
-    const m = /versionCode\s+(\d+)/.exec(gradleText);
-    if (m) xuanVersionCode = Number(m[1]);
+    const mCode = /versionCode\s+(\d+)/.exec(gradleText);
+    if (mCode) xuanVersionCode = Number(mCode[1]);
+    const mName = /versionName\s+"([^"]+)"/.exec(gradleText);
+    if (mName) xuanVersionName = mName[1];
   } catch { /* 非 Android 工程时保留兜底 */ }
+  // 版本名单一来源：build.gradle 的 versionName（package.json 长期停在旧值，
+  // 曾导致每版装完「关于」仍显示同一版本号）。
+  const packageVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version;
+  const displayVersion = xuanVersionName || packageVersion;
 
   return {
     base: process.env.ELECTRON === 'true' || isCapacitorBuild ? './' : '/',
@@ -260,7 +267,7 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
     define: {
       '__COMMIT_HASH__': JSON.stringify(commitHash + commitSuffix),
       '__GIT_BRANCH__': JSON.stringify(gitBranch),
-      '__APP_VERSION__': JSON.stringify(JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version),
+      '__APP_VERSION__': JSON.stringify(displayVersion),
       '__APP_VERSION_LABEL__': JSON.stringify(appVersionLabel),
       '__APP_RELEASE_CHANNEL__': JSON.stringify(appReleaseChannel),
       '__DOCKER_STACK_VERSION__': JSON.stringify(dockerStackVersion),

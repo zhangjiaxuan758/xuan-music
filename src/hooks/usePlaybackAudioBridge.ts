@@ -4,7 +4,7 @@ import { PlayerState } from '../types';
 import type { ReplayGainMode, SongResult, StatusMessage } from '../types';
 import type { LocalSong } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
-import { saveAudioBlob } from '../services/audioCache';
+import { saveAudioBlob, decodeBase64ToBlobAsync } from '../services/audioCache';
 import { hasCachedSongAudio, getSongAudioCacheKey } from '../services/onlineMusic/resourceCache';
 import { getSongResourceCacheKey } from '../services/onlineMusic/resourceKeys';
 import { resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
@@ -60,12 +60,11 @@ const downloadBlobViaNative = async (url: string): Promise<Blob> => {
     const comma = raw.indexOf(',');
     if (raw.startsWith('data:') && comma > 0) raw = raw.slice(comma + 1);
     if (!raw) throw new Error('native download empty body');
-    const binary = atob(raw);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
     const headers = response.headers ?? {};
     const contentType = headers['Content-Type'] || headers['content-type'] || 'audio/mpeg';
-    return new Blob([bytes.buffer as ArrayBuffer], { type: contentType });
+    // base64 → Blob 的解码放进 Worker：主线程被 atob/循环阻塞数百毫秒会压垮
+    // ScriptProcessorNode 的音频时隙，播放途中产生咔哒杂音。
+    return await decodeBase64ToBlobAsync(raw, contentType);
 };
 
 // Bridges audio element setup, autoplay, replay gain, and media caching.
@@ -151,10 +150,30 @@ export function usePlaybackAudioBridge({
         const existing = await hasCachedSongAudio(currentSong);
         if (existing) return;
 
+        const cacheKey = getSongAudioCacheKey(currentSong);
         try {
-            const blob = await downloadBlobViaNative(audioSrc);
-            if (blob.size === 0) return;
-            await saveAudioBlob(getSongAudioCacheKey(currentSong), blob);
+            let savedSize = 0;
+            const electronDownloader = typeof window !== 'undefined' ? (window as any).electron?.downloadAudioCache : null;
+            if (typeof electronDownloader === 'function') {
+                // 桌面端：渲染进程 fetch 网易云 CDN 受 CORS + 浏览器禁设 User-Agent/Referer 限制，
+                // 下载必败（「歌不缓存」的根因）。改由主进程 Node 下载并直写桌面文件缓存。
+                const result = await electronDownloader(cacheKey, audioSrc);
+                if (!result?.ok) throw new Error(result?.error || 'desktop download failed');
+                savedSize = result.size || 0;
+            } else {
+                const blob = await downloadBlobViaNative(audioSrc);
+                if (blob.size === 0) return;
+                await saveAudioBlob(cacheKey, blob);
+                savedSize = blob.size;
+            }
+            // 回读验证：IndexedDB 写失败（配额满等）在 saveToCache 内部被吞，
+            // 不验证的话「缓存」tab 会假成功，而设置里已缓存歌曲永远是 0。
+            const verified = await hasCachedSongAudio(currentSong);
+            if (!verified) {
+                console.error('[Cache] Audio save verification failed (likely quota), skip tab record');
+                setStatusMsg({ type: 'error', text: '存储空间不足，本歌未缓存', durationMs: 4000 });
+                return;
+            }
             // 记录到首页「缓存」tab（最多 100 首），并通知首页立即刷新。
             try {
                 const raw = localStorage.getItem('xuan_cached_media_songs');
@@ -163,7 +182,7 @@ export function usePlaybackAudioBridge({
                 localStorage.setItem('xuan_cached_media_songs', JSON.stringify(next));
                 window.dispatchEvent(new CustomEvent('xuan:cache-updated'));
             } catch { /* ignore */ }
-            console.log('[Cache] Audio saved', blob.size);
+            console.log('[Cache] Audio saved', savedSize);
         } catch (error) {
             console.error('[Cache] Failed to download audio for cache', error);
         }
@@ -171,9 +190,22 @@ export function usePlaybackAudioBridge({
         const coverUrl = getCoverUrl();
         if (coverUrl) {
             try {
-                const blob = await downloadBlobViaNative(coverUrl);
-                if (blob.size > 0) {
-                    await saveToCache(getSongResourceCacheKey('cover', currentSong), blob);
+                const desktopBytes = typeof window !== 'undefined' ? (window as any).electron?.fetchRemoteBytes : null;
+                if (typeof desktopBytes === 'function') {
+                    // 桌面端：同样走主进程下载（小资源，base64 回传）
+                    const result = await desktopBytes(coverUrl);
+                    if (result?.ok && result.base64) {
+                        const bin = atob(result.base64);
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        await saveToCache(getSongResourceCacheKey('cover', currentSong),
+                            new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' }));
+                    }
+                } else {
+                    const blob = await downloadBlobViaNative(coverUrl);
+                    if (blob.size > 0) {
+                        await saveToCache(getSongResourceCacheKey('cover', currentSong), blob);
+                    }
                 }
             } catch (error) {
                 console.error('[Cache] Failed to download cover for cache', error);
@@ -185,17 +217,21 @@ export function usePlaybackAudioBridge({
         }
     }, [audioSrc, currentSong, enableMediaCache, getCoverUrl, isPanelOpen, panelTab, updateCacheSize]);
 
-    // 播放一开始就在后台把整首缓存下来，不管有没有听完、有没有切歌。
-    // 之前只在 onEnded 里调用一次，没切到下一首就直接切歌时完全不写缓存。
-    const cachedSrcRef = useRef<string | null>(null);
+    // 起播即缓存：后台下载整首入库，与「正在播 / 播完 / 切歌」无关——只要开播就缓存。
+    // 注意绝不能在 cleanup 里取消定时器：cacheSongAssets 的依赖（面板开关 / tab 切换等）
+    // 变化会重建回调并清掉挂起的定时器，而去重标记又会阻止重新调度，
+    // 结果就是这首歌永远不被缓存（旧版「有时不缓存」的根因）。
+    const scheduledSrcRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!audioSrc || audioSrc.startsWith('blob:')) return;
         if (!enableMediaCache || !currentSong) return;
-        if (cachedSrcRef.current === audioSrc) return;
-        cachedSrcRef.current = audioSrc;
-        // 稍让出主线程，避免和起播抢带宽。
-        const timer = window.setTimeout(() => { void cacheSongAssets(); }, 1200);
-        return () => window.clearTimeout(timer);
+        const scheduled = scheduledSrcRef.current;
+        if (scheduled.has(audioSrc)) return;
+        if (scheduled.size > 300) scheduled.clear();
+        scheduled.add(audioSrc);
+        // 极短延迟让出主线程与起播抢的带宽，随后立即开始缓存
+        const timer = window.setTimeout(() => { void cacheSongAssets(); }, 300);
+        void timer; // 故意不返回 cleanup：缓存一旦排期就必须完成
     }, [audioSrc, enableMediaCache, currentSong, cacheSongAssets]);
 
     useEffect(() => {

@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// 当前文件：Folia Android Capacitor 容器的构建与 WebView 配置。
+// 当前文件：Xuan Android Capacitor 容器的构建与 WebView 配置。
 
 const config: CapacitorConfig = {
   appId: 'com.music.xuan',
@@ -20,7 +20,8 @@ const config: CapacitorConfig = {
     CapacitorCookies: { enabled: true },
     SplashScreen: {
       launchAutoHide: true,
-      launchShowDuration: 900,
+      // 启动图已移除：0 = 不显示启动动画，配合启动主题纯色背景直接进入界面
+      launchShowDuration: 0,
       backgroundColor: '#09090b',
       showSpinner: false,
     },

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme } = require('electron');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
@@ -18,7 +19,7 @@ const isAppImageRuntime =
 const linuxGraphicsMode =
   process.platform !== 'linux'
     ? 'system'
-    : (process.env.FOLIA_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
+    : (process.env.XUAN_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
 
 // Trusts only the known KuGou media CDN hostname mismatch while preserving TLS checks elsewhere.
 app.on('certificate-error', (event, _webContents, requestUrl, error, _certificate, callback) => {
@@ -71,7 +72,7 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
   app.commandLine.appendSwitch('enable-gpu-rasterization');
 }
 
-const store = new Store({ projectName: 'Folia' });
+const store = new Store({ projectName: 'Xuan' });
 const kugouApiBridge = createKugouApiBridge({ store });
 
 // --- Electron main process locale map ---
@@ -178,13 +179,13 @@ const VOICE_INPUT_PAUSE_ENABLED_SETTING_KEY = 'VOICE_INPUT_PAUSE_ENABLED';
 
 const DEFAULT_STAGE_API_PORT = 32107;
 const DEFAULT_OBS_BROWSER_SOURCE_PORT = 32108;
-const FOLIA_RELEASES_URL = 'https://github.com/chthollyphile/folia-major/releases';
-const FOLIA_GITHUB_REPOSITORY = {
-  owner: 'chthollyphile',
-  repo: 'folia-major',
+const XUAN_RELEASES_URL = 'https://music.jrr.lol';
+const XUAN_UPDATE_REPOSITORY = {
+  owner: 'xuan',
+  repo: 'music',
 };
-const WINDOWS_APP_USER_MODEL_ID = 'top.izuna.foliamajor';
-const REMOTE_CONTROL_WINDOW_TITLE = 'Folia Remote';
+const WINDOWS_APP_USER_MODEL_ID = 'com.music.xuan';
+const REMOTE_CONTROL_WINDOW_TITLE = 'Xuan Remote';
 const WINDOW_PLAYBACK_HANDOFF_REQUEST_TIMEOUT_MS = 800;
 const bundledAppIconPath = path.join(__dirname, '../build/icon.png');
 const extraResourceIconPath = path.join(process.resourcesPath, 'icon.png');
@@ -746,7 +747,7 @@ function refreshTrayMenu() {
   ]);
 
   appTray.setContextMenu(menu);
-  appTray.setToolTip('Folia');
+  appTray.setToolTip('Xuan');
 }
 
 function ensureTray() {
@@ -1158,7 +1159,7 @@ function getPackagedReleaseChannel() {
   try {
     const packageJsonPath = path.join(app.getAppPath(), 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    return packageJson.foliaReleaseChannel;
+    return packageJson.xuanReleaseChannel;
   } catch {
     return null;
   }
@@ -1173,7 +1174,7 @@ function getCurrentReleaseChannel() {
 
 function normalizeUpdateChannelSelection(value) {
   const channel = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  return channel === 'realeco' || channel === 'limo' || channel === 'cielo' ? channel : null;
+  return channel === 'stable' || channel === 'preview' || channel === 'canary' ? channel : null;
 }
 
 function getUpdateCheckSupportReason() {
@@ -1200,7 +1201,7 @@ const updateState = {
   status: 'idle',
   currentVersion: normalizeVersion(app.getVersion()),
   availableVersion: null,
-  updateUrl: FOLIA_RELEASES_URL,
+  updateUrl: XUAN_RELEASES_URL,
   error: null,
   lastCheckedAt: null,
   downloadProgress: null,
@@ -1280,7 +1281,7 @@ function setupAutoUpdater() {
     setUpdateState({
       status: 'available',
       availableVersion: version || null,
-      updateUrl: getReleaseUrl(getCurrentReleaseChannel().id, version, FOLIA_RELEASES_URL),
+      updateUrl: getReleaseUrl(getCurrentReleaseChannel().id, version, XUAN_RELEASES_URL),
       error: null,
       lastCheckedAt: Date.now(),
       downloadProgress: null,
@@ -1291,7 +1292,7 @@ function setupAutoUpdater() {
     setUpdateState({
       status: 'latest',
       availableVersion: null,
-      updateUrl: FOLIA_RELEASES_URL,
+      updateUrl: XUAN_RELEASES_URL,
       error: null,
       lastCheckedAt: Date.now(),
       downloadProgress: null,
@@ -1333,7 +1334,7 @@ function configureAutoUpdaterChannel(updater) {
   updater.channel = releaseChannel.updaterChannel;
   updater.allowPrerelease = releaseChannel.allowPrerelease;
 
-  const providerConfig = getUpdateProviderConfig(releaseChannel, FOLIA_GITHUB_REPOSITORY);
+  const providerConfig = getUpdateProviderConfig(releaseChannel, XUAN_UPDATE_REPOSITORY);
   if (providerConfig) {
     updater.setFeedURL(providerConfig);
   }
@@ -1427,8 +1428,8 @@ function markUpdateSeen(version) {
 async function openUpdateReleasePage(version) {
   const normalizedVersion = normalizeVersion(version || updateState.availableVersion);
   const url = normalizedVersion
-    ? getReleaseUrl(getCurrentReleaseChannel().id, normalizedVersion, FOLIA_RELEASES_URL)
-    : updateState.updateUrl || FOLIA_RELEASES_URL;
+    ? getReleaseUrl(getCurrentReleaseChannel().id, normalizedVersion, XUAN_RELEASES_URL)
+    : updateState.updateUrl || XUAN_RELEASES_URL;
 
   await shell.openExternal(url);
   return true;
@@ -2672,7 +2673,7 @@ function createRemoteControlWindow() {
     hasShadow: false,
     backgroundColor: '#00000000',
     title: REMOTE_CONTROL_WINDOW_TITLE,
-    name: 'folia-remote',
+    name: 'xuan-remote',
     autoHideMenuBar: true,
     resizable: false,
     minimizable: true,
@@ -2747,7 +2748,7 @@ async function getMainWindowCaptureSource() {
   const source =
     (mediaSourceId && sources.find(item => item.id === mediaSourceId)) ||
     sources.find(item => item.name === title && item.name !== REMOTE_CONTROL_WINDOW_TITLE) ||
-    sources.find(item => item.name.toLowerCase().includes('folia') && item.name !== REMOTE_CONTROL_WINDOW_TITLE) ||
+    sources.find(item => item.name.toLowerCase().includes('xuan') && item.name !== REMOTE_CONTROL_WINDOW_TITLE) ||
     null;
 
   return source ? { id: source.id, name: source.name } : null;
@@ -2876,10 +2877,55 @@ async function setMainWindowTransparentModeFromRemote(enabled) {
   return setMainWindowTransparentMode(enabled, handoff);
 }
 
+/* 应用级快捷键（应用菜单加速键，无边框窗口下同样生效）：
+ * 编辑类 Ctrl+C/X/V/Z/A 在输入框内可用；缩放 / 全屏 / 窗口控制为桌面端标准操作。
+ * 不注册 DevTools 加速键，避免给逆向留调试入口。 */
+function setupApplicationShortcuts() {
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'quit' }],
+    }] : []),
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
+    },
+    {
+      label: '视图',
+      submenu: [
+        { role: 'resetZoom', label: '重置缩放' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: '全屏' },
+      ],
+    },
+    {
+      label: '窗口',
+      submenu: [
+        { role: 'minimize', label: '最小化' },
+        { role: 'close', label: '关闭窗口' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
   }
+
+  setupApplicationShortcuts();
 
   setupFileSystemAccessPermissionHandlers();
   setupCorsBypassHandlers();
@@ -3038,7 +3084,7 @@ ipcMain.handle('save-settings', (event, key, value) => {
     setUpdateState({
       status: getUpdateCheckEnabled() && isUpdateCheckSupported() ? 'idle' : 'unsupported',
       availableVersion: null,
-      updateUrl: FOLIA_RELEASES_URL,
+      updateUrl: XUAN_RELEASES_URL,
       error: null,
       downloadProgress: null,
     });
@@ -3178,6 +3224,80 @@ ipcMain.handle('has-audio-cache', async (event, cacheKey) => {
 ipcMain.handle('save-audio-cache', async (event, cacheKey, data, mimeType) => {
   await writeAudioCacheEntry(cacheKey, data, mimeType);
   return true;
+});
+
+// ---------------------------------------------------------------- 远端下载（音乐缓存用）
+// 渲染进程 fetch 网易云 CDN 会因 CORS + 浏览器禁设 User-Agent/Referer 而必败，
+// 这是桌面端「歌不缓存」的根因。改由主进程用 Node 下载（无 CORS 约束），
+// 音频直接写入桌面文件缓存；小资源（封面等）以 base64 回传。
+function downloadRemoteBytes(url, maxBytes = 40 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let target;
+    try { target = new URL(url); } catch (e) { reject(new Error('invalid url')); return; }
+    const mod = target.protocol === 'http:' ? http : https;
+    const req = mod.request({
+      hostname: target.hostname,
+      port: target.port || undefined,
+      path: target.pathname + target.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'NeteaseMusic/8.10.30',
+        'Referer': 'https://music.163.com',
+      },
+      timeout: 30000,
+    }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        resolve(downloadRemoteBytes(new URL(res.headers.location, target).toString(), maxBytes));
+        return;
+      }
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        res.resume();
+        reject(new Error('download status ' + res.statusCode));
+        return;
+      }
+      const chunks = [];
+      let size = 0;
+      res.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > maxBytes) { req.destroy(new Error('download too large')); return; }
+        chunks.push(chunk);
+      });
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        if (buffer.byteLength === 0) { reject(new Error('download empty body')); return; }
+        resolve({ buffer, mimeType: res.headers['content-type'] || null });
+      });
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('download timeout')));
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+ipcMain.handle('download-audio-cache', async (event, cacheKey, url) => {
+  try {
+    const bytes = await downloadRemoteBytes(url);
+    const mimeType = bytes.mimeType || 'audio/mpeg';
+    await writeAudioCacheEntry(cacheKey, bytes.buffer, mimeType);
+    return { ok: true, size: bytes.buffer.byteLength, mimeType };
+  } catch (error) {
+    return { ok: false, error: String(error && error.message || error) };
+  }
+});
+
+ipcMain.handle('fetch-remote-bytes', async (event, url) => {
+  try {
+    const bytes = await downloadRemoteBytes(url, 10 * 1024 * 1024);
+    return {
+      ok: true,
+      base64: bytes.buffer.toString('base64'),
+      mimeType: bytes.mimeType || 'application/octet-stream',
+    };
+  } catch (error) {
+    return { ok: false, error: String(error && error.message || error) };
+  }
 });
 
 ipcMain.handle('get-audio-cache-usage', async () => {
@@ -3671,7 +3791,7 @@ ipcMain.handle('video-export-choose-path', async (event, defaultName, extension,
     : (safeExtension === 'mp4' ? 'MP4 Video' : 'WebM Video');
   const safeDefaultName = typeof defaultName === 'string' && defaultName.trim()
     ? defaultName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-    : `folia-export.${safeExtension}`;
+    : `xuan-export.${safeExtension}`;
   const defaultFileName = safeDefaultName.endsWith(`.${safeExtension}`)
     ? safeDefaultName
     : `${safeDefaultName.replace(/\.[^.]+$/, '')}.${safeExtension}`;

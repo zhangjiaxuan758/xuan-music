@@ -11,6 +11,7 @@ import { useCommandPalette } from './components/command-palette/useCommandPalett
 import AppShell from './components/app/AppShell';
 import Home from './components/app/Home';
 import PlayerPanel from './components/app/PlayerPanel';
+import XuanCppVisualizer from './components/player/XuanCppVisualizer';
 import ThemeQuickEditorHost from './components/panelTab/ThemeQuickEditor';
 import AppDialogs from './components/app/dialogs/AppDialogs';
 import { createCopySongInfoSuccessHandler } from './components/app/dialogs/createCopySongInfoSuccessHandler';
@@ -94,7 +95,7 @@ import { clearPrefetchRuntime } from './services/prefetchService';
 import { buildLocalLibraryIndex, followEntityRedirect } from './utils/localLibraryIndex';
 import type { PlayerChromeVisibilityMode } from './types/remoteControl';
 
-const LOCAL_MUSIC_UPDATED_EVENT = 'folia-local-music-updated';
+const LOCAL_MUSIC_UPDATED_EVENT = 'xuan-local-music-updated';
 const DEV_DEBUG_SHORTCUT_LABEL = '调试面板';
 const ONLINE_AUDIO_URL_TTL_MS = 1200 * 1000;
 const ONLINE_AUDIO_URL_REFRESH_BUFFER_MS = 60 * 1000;
@@ -216,7 +217,7 @@ export default function App() {
     const [playerState, setPlayerState] = useState<PlayerState>(PlayerState.IDLE);
     const currentTime = useMotionValue(0);
     useEffect(() => {
-        (window as any).__folia_current_time = currentTime;
+        (window as any).__xuan_current_time = currentTime;
     }, [currentTime]);
     const [duration, setDuration] = useState(0);
     const [currentLineIndex, setCurrentLineIndex] = useState(-1);
@@ -766,8 +767,8 @@ export default function App() {
             }
         };
 
-        window.addEventListener('folia-themes-synced', handleSyncCompleted);
-        return () => window.removeEventListener('folia-themes-synced', handleSyncCompleted);
+        window.addEventListener('xuan-themes-synced', handleSyncCompleted);
+        return () => window.removeEventListener('xuan-themes-synced', handleSyncCompleted);
     }, [currentSong, restoreCachedThemeForSong]);
 
     useEffect(() => {
@@ -3266,7 +3267,11 @@ export default function App() {
             <AppOverlays model={appOverlaysModel} />
 
             {currentView === 'player' && !showLyricMatchModal && (
-                <PlayerPanel model={playerPanelModel} />
+                <>
+                    {/* 正在播放页视觉（频谱/波形/光晕/粒子）由 C++ WASM 逐像素渲染，两端共用同一份引擎 */}
+                    <XuanCppVisualizer analyserRef={analyserRef} />
+                    <PlayerPanel model={playerPanelModel} />
+                </>
             )}
 
             <ThemeQuickEditorHost onSaveAiTheme={saveEditedAiDualTheme} onSaveCustomTheme={saveCustomDualTheme} />

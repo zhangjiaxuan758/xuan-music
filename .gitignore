@@ -29,8 +29,8 @@ dist-ssr
 dev-dist/
 example/
 release/
-packaging/aur/folia-major-bin/FIRST_RELEASE.md
-packaging/aur/folia-major-bin/README.md
+packaging/aur/xuan-music-bin/FIRST_RELEASE.md
+packaging/aur/xuan-music-bin/README.md
 .codex
 .codex-tmp
 .wrangler/tmp

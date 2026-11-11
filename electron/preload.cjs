@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('electron', {
     getAudioCache: (cacheKey) => ipcRenderer.invoke('get-audio-cache', cacheKey),
     hasAudioCache: (cacheKey) => ipcRenderer.invoke('has-audio-cache', cacheKey),
     saveAudioCache: (cacheKey, data, mimeType) => ipcRenderer.invoke('save-audio-cache', cacheKey, data, mimeType),
+    // 主进程代为下载（无 CORS/禁设头限制）：音频直写文件缓存；小资源回传 base64
+    downloadAudioCache: (cacheKey, url) => ipcRenderer.invoke('download-audio-cache', cacheKey, url),
+    fetchRemoteBytes: (url) => ipcRenderer.invoke('fetch-remote-bytes', url),
     getAudioCacheUsage: () => ipcRenderer.invoke('get-audio-cache-usage'),
     getAudioCacheStats: () => ipcRenderer.invoke('get-audio-cache-stats'),
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),

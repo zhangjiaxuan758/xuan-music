@@ -15,7 +15,7 @@ export type D1Database = {
 };
 
 export type Env = {
-  FOLIA_SYNC_DB: D1Database;
+  XUAN_SYNC_DB: D1Database;
   SYNC_TOKEN: string;
   DASHBOARD_TOKEN?: string;
 };
@@ -43,10 +43,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
 );
 
 let schemaEnsured = false;
+let schemaInFlight: Promise<void> | null = null;
 
-const ensureSchema = async (db: D1Database) => {
-  if (schemaEnsured) return;
-  await db.batch([
+// 缓存进行中的建表 Promise：并发首请求只执行一次 DDL，失败可重试。
+const ensureSchema = (db: D1Database): Promise<void> => {
+  if (schemaEnsured) return Promise.resolve();
+  if (schemaInFlight) return schemaInFlight;
+  schemaInFlight = db.batch([
     db.prepare(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -73,8 +76,13 @@ const ensureSchema = async (db: D1Database) => {
     `),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_themes_updated_at ON themes(updated_at)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_themes_bucket_id ON themes(bucket_id)'),
-  ]);
-  schemaEnsured = true;
+  ]).then(() => {
+    schemaEnsured = true;
+  }).catch(err => {
+    schemaInFlight = null;   // 允许下次请求重试
+    throw err;
+  });
+  return schemaInFlight;
 };
 
 const parseThemeInput = (value: unknown) => {
@@ -137,7 +145,7 @@ app.use('*', async (c, next) => {
 // Initialize Schema
 app.use('*', async (c, next) => {
   if (c.req.path !== '/') {
-    await ensureSchema(c.env.FOLIA_SYNC_DB);
+    await ensureSchema(c.env.XUAN_SYNC_DB);
   }
   await next();
 });
@@ -151,14 +159,14 @@ app.get('/', async (c) => {
     return c.text('Not Found', 404);
   }
 
-  await ensureSchema(c.env.FOLIA_SYNC_DB);
+  await ensureSchema(c.env.XUAN_SYNC_DB);
 
-  const settingsRow = await c.env.FOLIA_SYNC_DB
+  const settingsRow = await c.env.XUAN_SYNC_DB
     .prepare('SELECT updated_at FROM settings WHERE key = ?')
     .bind('visual')
     .first<{ updated_at: string }>();
     
-  const themesRow = await c.env.FOLIA_SYNC_DB
+  const themesRow = await c.env.XUAN_SYNC_DB
     .prepare('SELECT MAX(updated_at) AS themesUpdatedAt, SUM(count) AS themeCount FROM theme_buckets')
     .first<{ themesUpdatedAt: string | null; themeCount: number }>();
 
@@ -167,7 +175,7 @@ app.get('/', async (c) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Folia Sync Server</title>
+    <title>Xuan Sync Server</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -278,7 +286,7 @@ app.get('/', async (c) => {
 </head>
 <body>
     <div class="header">
-        <h1 class="title">Folia Sync Server</h1>
+        <h1 class="title">Xuan Sync Server</h1>
         <div class="version-pill">v1.0.0</div>
     </div>
     
@@ -324,11 +332,11 @@ api.use('*', async (c, next) => {
 });
 
 api.get('/state', async (c) => {
-  const settingsRow = await c.env.FOLIA_SYNC_DB
+  const settingsRow = await c.env.XUAN_SYNC_DB
     .prepare('SELECT updated_at FROM settings WHERE key = ?')
     .bind('visual')
     .first<{ updated_at: string }>();
-  const themesRow = await c.env.FOLIA_SYNC_DB
+  const themesRow = await c.env.XUAN_SYNC_DB
     .prepare('SELECT MAX(updated_at) AS themesUpdatedAt, SUM(count) AS themeCount FROM theme_buckets')
     .first<{ themesUpdatedAt: string | null; themeCount: number }>();
   return c.json({
@@ -340,21 +348,21 @@ api.get('/state', async (c) => {
 });
 
 api.get('/settings', async (c) => {
-  const row = await c.env.FOLIA_SYNC_DB
+  const row = await c.env.XUAN_SYNC_DB
     .prepare('SELECT value_json FROM settings WHERE key = ?')
     .bind('visual')
     .first<{ value_json: string }>();
   return c.json(row ? JSON.parse(row.value_json) : null);
 });
 
-api.get('/themes/manifest', async (c) => c.json(await getThemeManifest(c.env.FOLIA_SYNC_DB)));
+api.get('/themes/manifest', async (c) => c.json(await getThemeManifest(c.env.XUAN_SYNC_DB)));
 
 api.put('/settings', async (c) => {
   const body = await c.req.json<Record<string, unknown>>().catch(() => null);
   if (!body || body.schemaVersion !== SCHEMA_VERSION || typeof body.updatedAt !== 'string' || !isRecord(body.data)) {
     return c.json({ ok: false, error: 'invalid_settings' }, 400);
   }
-  await c.env.FOLIA_SYNC_DB
+  await c.env.XUAN_SYNC_DB
     .prepare(`
       INSERT INTO settings (key, value_json, updated_at)
       VALUES (?, ?, ?)
@@ -378,7 +386,7 @@ api.post('/themes/get', async (c) => {
   if (fingerprints.length === 0) return c.json({ themes: [] });
 
   const placeholders = fingerprints.map(() => '?').join(',');
-  const rows = await c.env.FOLIA_SYNC_DB
+  const rows = await c.env.XUAN_SYNC_DB
     .prepare(`SELECT fingerprint, theme_json, source, updated_at FROM themes WHERE fingerprint IN (${placeholders})`)
     .bind(...fingerprints)
     .all<{ fingerprint: string; theme_json: string; source: string; updated_at: string }>();
@@ -392,7 +400,10 @@ api.post('/themes/put', async (c) => {
     return c.json({ ok: false, error: 'invalid_themes' }, 400);
   }
 
-  const validThemes = themes as NonNullable<ReturnType<typeof parseThemeInput>>[];
+  const parsed = themes as NonNullable<ReturnType<typeof parseThemeInput>>[];
+  // 同一批里重复 fingerprint 会让桶 count/hash 被重复累加，先按指纹去重
+  // （保留最后一次出现的版本），与 /themes/get 的 Set 去重口径一致。
+  const validThemes = Array.from(new Map(parsed.map(t => [t.fingerprint, t])).values());
   if (validThemes.length === 0) {
     return c.json({ ok: true, savedCount: 0 });
   }
@@ -400,7 +411,7 @@ api.post('/themes/put', async (c) => {
   const fingerprints = validThemes.map(t => t.fingerprint);
   const placeholders = fingerprints.map(() => '?').join(',');
   
-  const oldRows = await c.env.FOLIA_SYNC_DB
+  const oldRows = await c.env.XUAN_SYNC_DB
     .prepare(`SELECT fingerprint, updated_at FROM themes WHERE fingerprint IN (${placeholders})`)
     .bind(...fingerprints)
     .all<{ fingerprint: string; updated_at: string }>();
@@ -433,7 +444,7 @@ api.post('/themes/put', async (c) => {
   const batchStatements: D1PreparedStatement[] = [];
 
   validThemes.forEach(theme => {
-    batchStatements.push(c.env.FOLIA_SYNC_DB.prepare(`
+    batchStatements.push(c.env.XUAN_SYNC_DB.prepare(`
       INSERT INTO themes (fingerprint, bucket_id, theme_json, source, updated_at)
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(fingerprint) DO UPDATE SET
@@ -452,7 +463,7 @@ api.post('/themes/put', async (c) => {
   });
 
   bucketDiffs.forEach((diff, bucketId) => {
-    batchStatements.push(c.env.FOLIA_SYNC_DB.prepare(`
+    batchStatements.push(c.env.XUAN_SYNC_DB.prepare(`
       INSERT INTO theme_buckets (bucket_id, count, hash, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(bucket_id) DO UPDATE SET
@@ -467,7 +478,7 @@ api.post('/themes/put', async (c) => {
     ));
   });
 
-  await c.env.FOLIA_SYNC_DB.batch(batchStatements);
+  await c.env.XUAN_SYNC_DB.batch(batchStatements);
   
   console.log(`[Sync] Saved ${validThemes.length} themes (batch update)`);
   return c.json({ ok: true, savedCount: validThemes.length });
@@ -481,7 +492,7 @@ api.post('/themes/bucket', async (c) => {
   if (bucketIds.length === 0) return c.json({ themes: [] });
 
   const placeholders = bucketIds.map(() => '?').join(',');
-  const rows = await c.env.FOLIA_SYNC_DB
+  const rows = await c.env.XUAN_SYNC_DB
     .prepare(`
       SELECT fingerprint, theme_json, source, updated_at
       FROM themes
@@ -500,7 +511,7 @@ api.post('/themes/list', async (c) => {
     ? Math.trunc(body.limit)
     : DEFAULT_THEME_LIST_LIMIT;
   const limit = Math.max(1, Math.min(MAX_THEME_LIST_LIMIT, requestedLimit));
-  const rows = await c.env.FOLIA_SYNC_DB
+  const rows = await c.env.XUAN_SYNC_DB
     .prepare(`
       SELECT fingerprint, theme_json, source, updated_at
       FROM themes

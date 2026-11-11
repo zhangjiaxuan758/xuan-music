@@ -17,6 +17,7 @@ import { checkUpdate, downloadUrl, initXuanServer, type UpdateInfo } from './xua
 
 const XuanNative = registerPlugin<{
   installApk(options: { path: string }): Promise<{ ok: boolean }>;
+  getApkVersion(): Promise<{ versionCode: number; versionName: string }>;
   updateMedia(options: MediaOptions): Promise<void>;
   hideMedia(): Promise<void>;
 } & Record<string, any>>('XuanNative');
@@ -26,21 +27,53 @@ export interface MediaOptions {
   showFavorite: boolean; liked: boolean;
 }
 
-// 当前客户端 versionCode；构建脚本会注入真实值
+// 当前客户端 versionCode；构建脚本会注入真实值，仅作原生读取失败时的兜底
 declare const __XUAN_VERSION_CODE__: number | undefined;
 export const CURRENT_VERSION_CODE: number =
   (typeof __XUAN_VERSION_CODE__ !== 'undefined' ? __XUAN_VERSION_CODE__ : 10629);
 
+/**
+ * 运行时版本码：优先从原生 PackageManager 读取 APK 真实 versionCode。
+ * 构建注入值可能过期（旧构建弹「有新版」、系统装不上同版本），原生读取才能根治。
+ */
+export async function resolveCurrentVersionCode(): Promise<number> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const v = await XuanNative.getApkVersion();
+      if (v && Number.isFinite(v.versionCode) && v.versionCode > 0) return v.versionCode;
+    } catch { /* 旧包无此方法时走兜底 */ }
+  }
+  return CURRENT_VERSION_CODE;
+}
+
 // 管理端「更新说明」留空时的兜底文案（服务端也会下发同一默认值）
 export const DEFAULT_CHANGELOG = '修复已知问题，请尽快更新';
 
-const CHECKED_KEY = 'xuan_update_checked_session';
+// 每次冷启动都检查并弹窗；点「取消」只关闭本次弹窗，不写入任何抑制标记，
+// 保证下次启动仍会重新弹（与旧版行为一致）。
 
 function el(tag: string, style: Partial<CSSStyleDeclaration>, text?: string): HTMLElement {
   const n = document.createElement(tag);
   Object.assign(n.style, style);
   if (text) n.textContent = text;
   return n;
+}
+
+/** 轻提示（与更新弹窗同风格）；用于「已是最新版本」等反馈 */
+function toast(msg: string, ms = 2200) {
+  const t = el('div', {
+    position: 'fixed', left: '50%', bottom: '42px', transform: 'translateX(-50%)',
+    zIndex: '100000', background: 'rgba(30,30,32,.94)', color: '#f2f2f3',
+    padding: '10px 18px', borderRadius: '999px', fontSize: '13px', fontWeight: '600',
+    boxShadow: '0 10px 30px rgba(0,0,0,.4)', fontFamily: 'system-ui, -apple-system, sans-serif',
+    opacity: '0', transition: 'opacity .2s, transform .2s',
+  }, msg);
+  document.body.append(t);
+  requestAnimationFrame(() => { t.style.opacity = '1'; });
+  setTimeout(() => {
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 250);
+  }, ms);
 }
 
 let dialogOpen = false;
@@ -81,15 +114,16 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
   };
 
   const close = () => { overlay.remove(); dialogOpen = false; };
-  const cancel = btn('取消', false, () => {
-    try { sessionStorage.setItem(CHECKED_KEY, '1'); } catch { /* noop */ }
-    close();
-  });
+  // 取消：仅关闭弹窗，不记录任何状态 → 下次启动仍会重新弹
+  const cancel = btn('取消', false, () => { close(); });
+  // 确定：关闭弹窗并立即开始下载/更新
   const confirm = btn('确定', true, () => { close(); onConfirm(); });
   row.append(cancel, confirm);
   card.append(title, ver, desc, row);
   overlay.append(card);
-  overlay.addEventListener('click', e => { if (e.target === overlay) cancel.click(); });
+  // 强模态：点击遮罩/卡片外的任何位置都不关闭，只有「取消」「确定」可操作
+  overlay.addEventListener('click', e => { e.stopPropagation(); });
+  card.addEventListener('click', e => { e.stopPropagation(); });
   document.body.append(overlay);
 }
 
@@ -185,6 +219,11 @@ async function downloadApk(info: UpdateInfo) {
       if (!Capacitor.isNativePlatform()) throw e1;
       bytes = await nativeFallbackBytes(url, ui);
     }
+    // 下载完整性：ZIP 魔数 + 最小体积，避免截断包被写入/安装后出现默认图标或打不开
+    if (bytes.length < 1024 * 1024) throw new Error('安装包不完整，请重试');
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
+      throw new Error('安装包格式错误，请重试');
+    }
     const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.android.package-archive' });
     const path = await writeApkToPrivate(blob);
     ui.set(100, '下载完成');
@@ -212,16 +251,69 @@ async function installApk(path: string) {
   try { await XuanNative.installApk({ path }); } catch { /* 用户可稍后手动安装 */ }
 }
 
-/** 启动时调用：仅客户端 App 检查更新，网页端不检查 */
+/** Windows 桌面版由 Electron preload 注入 __xuanDesktop=true；网页端没有该标记。 */
+const isDesktop = (): boolean =>
+  typeof window !== 'undefined' &&
+  (window as unknown as { __xuanDesktop?: boolean }).__xuanDesktop === true;
+
+let updaterStarted = false;
+
+/**
+ * 启动时调用：安卓 App 检查 APK 通道；Windows 桌面版检查 exe 通道；纯网页端不检查。
+ * 「第一时间」：不等待配置拉取（initXuanServer 的 fetchServerConfig/SSE），
+ * 票据由 checkUpdate 内部按需自取，因此这里直接并行发起更新检查，
+ * 让新版本弹窗在应用起来后立刻呈现，而不是被其它初始化串行阻塞。
+ * 每次冷启动都会执行一遍；点取消只关本次弹窗，下次启动照样弹。
+ */
 export async function initAppUpdater() {
-  if (!Capacitor.isNativePlatform()) return;
-  try {
-    if (sessionStorage.getItem(CHECKED_KEY)) return;   // 本次启动已询问过
-  } catch { /* noop */ }
-  await initXuanServer();
-  const info = await checkUpdate(false);
-  if (!info || !info.hasApk || info.versionCode <= CURRENT_VERSION_CODE) return;
+  if (updaterStarted) return;
+  updaterStarted = true;
+  const desktop = isDesktop();
+  if (!Capacitor.isNativePlatform() && !desktop) return;
+  // 桌面版读服务端 updateWindows 段（与安卓 APK 通道完全独立）
+  const info = await checkUpdate(false, desktop ? 'windows' : 'android');
+  const current = await resolveCurrentVersionCode();
+  if (!info || !info.hasApk || info.versionCode <= current) return;
+  if (desktop) {
+    // exe 无法像 APK 那样静默安装：确认后交给系统默认浏览器下载安装包，
+    // 用户运行 Setup 覆盖安装即可（同 appId、数据保留）。
+    showUpdateDialog(info, () => {
+      void downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe')
+        .then(url => { window.open(url, '_blank'); })
+        .catch(() => { /* noop */ });
+    });
+    return;
+  }
   showUpdateDialog(info, () => { void downloadApk(info); });
+}
+
+/**
+ * 手动「检查更新」：供设置页按钮调用。
+ * - 有可用更新 → 弹出与启动一致的更新弹窗（服务端返回的即最新版，点确定一次性更到最新）；
+ * - 已是最新 → 轻提示「已是最新版本」。
+ * 安卓走 APK 通道、Windows 桌面走 exe 通道，纯网页端提示无需更新。
+ */
+export async function manualCheckUpdate(): Promise<void> {
+  const desktop = isDesktop();
+  if (!Capacitor.isNativePlatform() && !desktop) {
+    toast('网页版无需更新');
+    return;
+  }
+  const info = await checkUpdate(false, desktop ? 'windows' : 'android');
+  const current = await resolveCurrentVersionCode();
+  if (!info || !info.hasApk || info.versionCode <= current) {
+    toast('已是最新版本');
+    return;
+  }
+  showUpdateDialog(info, () => {
+    if (desktop) {
+      void downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe')
+        .then(url => { window.open(url, '_blank'); })
+        .catch(() => { /* noop */ });
+    } else {
+      void downloadApk(info);
+    }
+  });
 }
 
 // ---------------------------------------------------------------- 状态栏媒体通知

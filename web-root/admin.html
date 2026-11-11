@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>小轩音乐 · 管理端</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --fg:#e8eaed; --mut:#9aa3b2; --acc:#4f8cff; --ok:#37c871; --err:#ff5c5c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--fg); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--mut); font-size: 13px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  label { display:block; font-size: 12px; color: var(--mut); margin: 10px 0 4px; }
+  input, textarea, button { font-family: inherit; }
+  input[type=text], input[type=password], input[type=number], textarea {
+    width: 100%; background: #0c0e12; border: 1px solid var(--line); color: var(--fg);
+    border-radius: 8px; padding: 9px 11px; font-size: 13px; outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--acc); }
+  textarea { min-height: 240px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  button {
+    background: var(--acc); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; cursor: pointer; margin-top: 12px;
+  }
+  button.ghost { background: #232833; }
+  button:hover { filter: brightness(1.08); }
+  .row { display:flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 180px; }
+  .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+  .hidden { display: none; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:#232833; color:var(--mut); }
+  .topbar { display:flex; justify-content: space-between; align-items:center; }
+  a { color: var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>小轩音乐 · 管理端</h1>
+      <div class="sub">服务端配置 / 版本发布 / 口令管理</div>
+    </div>
+    <div id="session" class="hidden">
+      <span class="pill" id="sessPill">已登录</span>
+      <button class="ghost" style="margin-left:8px" onclick="logout()">退出</button>
+    </div>
+  </div>
+
+  <!-- 登录 -->
+  <div id="loginCard" class="card">
+    <h2>登录</h2>
+    <label>管理口令</label>
+    <input type="password" id="pwd" placeholder="请输入管理口令" onkeydown="if(event.key==='Enter')doLogin()" />
+    <button onclick="doLogin()">登录</button>
+    <div id="loginMsg" class="msg"></div>
+  </div>
+
+  <!-- 主面板 -->
+  <div id="dash" class="hidden">
+    <div class="card">
+      <h2>服务端配置</h2>
+      <div class="sub" style="margin:-8px 0 12px">读取自服务端全量配置；修改后点击保存。结构需保留 tabs / developerPicks 字段。</div>
+      <textarea id="cfg"></textarea>
+      <button onclick="saveConfig()">保存配置</button>
+      <div id="cfgMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>发布安卓客户端 (APK)</h2>
+      <div class="row">
+        <div>
+          <label>APK 文件</label>
+          <input type="file" id="apkFile" accept=".apk" />
+        </div>
+        <div>
+          <label>版本号 versionCode</label>
+          <input type="number" id="apkVC" placeholder="如 10636" />
+        </div>
+      </div>
+      <label>版本名 versionName</label>
+      <input type="text" id="apkVN" placeholder="如 1.7.6" />
+      <label>更新说明 changelog</label>
+      <textarea id="apkLog" style="min-height:70px"></textarea>
+      <button onclick="uploadApk()">上传并发布 APK</button>
+      <div id="apkMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>发布桌面端 (exe)</h2>
+      <div class="row">
+        <div>
+          <label>exe 文件</label>
+          <input type="file" id="exeFile" accept=".exe" />
+        </div>
+        <div>
+          <label>版本号 versionCode</label>
+          <input type="number" id="exeVC" placeholder="如 10636" />
+        </div>
+      </div>
+      <label>版本名 versionName</label>
+      <input type="text" id="exeVN" placeholder="如 1.7.6" />
+      <label>更新说明 changelog</label>
+      <textarea id="exeLog" style="min-height:70px"></textarea>
+      <button onclick="uploadExe()">上传并发布 exe</button>
+      <div id="exeMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>修改管理口令</h2>
+      <label>新口令（至少 4 位）</label>
+      <input type="password" id="newPwd" placeholder="新管理口令" />
+      <button onclick="changePwd()">修改口令</button>
+      <div id="pwdMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 签名密钥（运行时还原，避免明文落地）
+const OBF = [49,226,124,166,117,108,132,78,100,228,116,175,54,32,130,15,100,174,123,251,59,63,149,9,120,242,40,172,96,111,192,8,121,166];
+const OKEY = [73,151,29,200,88,13,244,62];
+function deobf(blob){ return blob.map((x,i)=>String.fromCharCode(x ^ OKEY[i % OKEY.length])).join(''); }
+const APP_SIGN_SECRET = deobf(OBF);
+
+const enc = new TextEncoder();
+async function sha256Hex(str){ const b = await crypto.subtle.digest('SHA-256', enc.encode(str)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function hmacHex(secret, msg){
+  const k = await crypto.subtle.importKey('raw', enc.encode(secret), {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  const s = await crypto.subtle.sign('HMAC', k, enc.encode(msg));
+  return [...new Uint8Array(s)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+let ticket = null, ticketExp = 0;
+async function ensureTicket(){
+  if (ticket && Date.now() < ticketExp - 5000) return ticket;
+  const r = await fetch('/api/ticket');
+  const j = await r.json();
+  ticket = j.ticket; ticketExp = Date.now() + (j.ttl||60)*1000;
+  return ticket;
+}
+function nonce(){ return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,12); }
+async function signHeaders(method, path, body, adminToken, bodyBytes){
+  const ts = Math.floor(Date.now()/1000).toString();
+  const n = nonce();
+  const bodyHash = bodyBytes
+    ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', bodyBytes))].map(x=>x.toString(16).padStart(2,'0')).join('')
+    : await sha256Hex(body||'');
+  const t = await ensureTicket();
+  const key = await sha256Hex(APP_SIGN_SECRET + '|' + t);
+  const sign = await hmacHex(key, `${ts}|${n}|${path}|${bodyHash}`);
+  const h = { 'X-Xuan-Ts': ts, 'X-Xuan-Nonce': n, 'X-Xuan-Sign': sign, 'X-Xuan-Ticket': t };
+  if (adminToken) h['X-Xuan-Admin-Token'] = adminToken;
+  return h;
+}
+async function api(method, path, payload, adminToken, binary){
+  const body = binary ? '' : (payload === undefined ? '' : JSON.stringify(payload));
+  const headers = await signHeaders(method, path, body, adminToken, binary);
+  const opts = { method, headers };
+  if (binary){ opts.body = binary; headers['Content-Type'] = 'application/octet-stream'; }
+  else if (payload !== undefined){ opts.body = body; headers['Content-Type'] = 'application/json'; }
+  const r = await fetch(path, opts);
+  const txt = await r.text();
+  let data = null; try { data = JSON.parse(txt); } catch(e){}
+  return { status: r.status, data };
+}
+
+function getToken(){ return sessionStorage.getItem('xuan_admin_token') || ''; }
+function setMsg(id, text, ok){ const el = document.getElementById(id); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+function showDash(){ document.getElementById('loginCard').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); document.getElementById('session').classList.remove('hidden'); loadConfig(); }
+function logout(){ sessionStorage.removeItem('xuan_admin_token'); location.reload(); }
+
+async function doLogin(){
+  const pwd = document.getElementById('pwd').value;
+  setMsg('loginMsg', '登录中…', true);
+  const r = await fetch('/api/admin/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd }) });
+  const j = await r.json().catch(()=>({}));
+  if (r.ok && j.token){ sessionStorage.setItem('xuan_admin_token', j.token); setMsg('loginMsg','',true); showDash(); }
+  else setMsg('loginMsg', j.error || '登录失败', false);
+}
+
+async function loadConfig(){
+  const r = await api('GET', '/api/admin/config', undefined, getToken());
+  if (r.status === 200 && r.data){ document.getElementById('cfg').value = JSON.stringify(r.data, null, 2); }
+  else setMsg('cfgMsg', (r.data && r.data.error) || '读取配置失败', false);
+}
+async function saveConfig(){
+  let cfg; try { cfg = JSON.parse(document.getElementById('cfg').value); } catch(e){ setMsg('cfgMsg','JSON 解析失败：'+e.message, false); return; }
+  setMsg('cfgMsg','保存中…', true);
+  const r = await api('POST', '/api/admin/config', cfg, getToken());
+  if (r.status === 200) setMsg('cfgMsg', '已保存，配置版本 ' + (r.data && r.data.version), true);
+  else setMsg('cfgMsg', (r.data && r.data.error) || '保存失败', false);
+}
+async function uploadApk(){
+  const f = document.getElementById('apkFile').files[0];
+  if (!f){ setMsg('apkMsg','请选择 APK 文件', false); return; }
+  setMsg('apkMsg','上传中…', true);
+  const buf = await f.arrayBuffer();
+  const headers = await signHeaders('POST', '/api/admin/apk', '', getToken(), new Uint8Array(buf));
+  headers['X-Xuan-Apk-Name'] = f.name;
+  headers['X-Xuan-Version-Code'] = document.getElementById('apkVC').value || '0';
+  headers['X-Xuan-Version-Name'] = encodeURIComponent(document.getElementById('apkVN').value || '');
+  headers['X-Xuan-Changelog'] = encodeURIComponent(document.getElementById('apkLog').value || '');
+  headers['Content-Type'] = 'application/octet-stream';
+  const r = await fetch('/api/admin/apk', { method:'POST', headers, body: buf });
+  const j = await r.json().catch(()=>({}));
+  if (r.ok) setMsg('apkMsg', '已发布：' + (j.file||f.name) + ' (' + (j.size||0) + ' 字节)', true);
+  else setMsg('apkMsg', j.error || '上传失败', false);
+}
+async function uploadExe(){
+  const f = document.getElementById('exeFile').files[0];
+  if (!f){ setMsg('exeMsg','请选择 exe 文件', false); return; }
+  setMsg('exeMsg','上传中…', true);
+  const buf = await f.arrayBuffer();
+  const headers = await signHeaders('POST', '/api/admin/exe', '', getToken(), new Uint8Array(buf));
+  headers['X-Xuan-Exe-Name'] = f.name;
+  headers['X-Xuan-Version-Code'] = document.getElementById('exeVC').value || '0';
+  headers['X-Xuan-Version-Name'] = encodeURIComponent(document.getElementById('exeVN').value || '');
+  headers['X-Xuan-Changelog'] = encodeURIComponent(document.getElementById('exeLog').value || '');
+  headers['Content-Type'] = 'application/octet-stream';
+  const r = await fetch('/api/admin/exe', { method:'POST', headers, body: buf });
+  const j = await r.json().catch(()=>({}));
+  if (r.ok) setMsg('exeMsg', '已发布：' + (j.file||f.name) + ' (' + (j.size||0) + ' 字节)', true);
+  else setMsg('exeMsg', j.error || '上传失败', false);
+}
+async function changePwd(){
+  const np = document.getElementById('newPwd').value;
+  setMsg('pwdMsg','修改中…', true);
+  const r = await api('POST', '/api/admin/password', { password: np }, getToken());
+  if (r.status === 200) setMsg('pwdMsg', '口令已修改，请重新登录', true);
+  else setMsg('pwdMsg', (r.data && r.data.error) || '修改失败', false);
+}
+
+if (getToken()) showDash();
+</script>
+</body>
+</html>

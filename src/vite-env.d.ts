@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 declare global {
-  // 当前文件：Folia 构建常量、Vite 环境变量与宿主桥接类型声明。
+  // 当前文件：Xuan 构建常量、Vite 环境变量与宿主桥接类型声明。
   interface ImportMetaEnv {
-    readonly VITE_FOLIA_API_BASE?: string;
+    readonly VITE_XUAN_API_BASE?: string;
   }
 
   interface ImportMeta {
@@ -18,7 +18,7 @@ declare global {
   const __DOCKER_STACK_VERSION__: string;
 
   interface Window {
-    __FOLIA_RUNTIME_CONFIG__?: {
+    __XUAN_RUNTIME_CONFIG__?: {
       aiProvider?: 'gemini' | 'openai';
     };
   }
@@ -485,6 +485,10 @@ declare global {
       getAudioCache: (cacheKey: string) => Promise<ElectronAudioCacheEntry>;
       hasAudioCache: (cacheKey: string) => Promise<boolean>;
       saveAudioCache: (cacheKey: string, data: ArrayBuffer, mimeType?: string) => Promise<boolean>;
+      /** 主进程代下载音频并直写文件缓存（桌面端缓存歌曲用，绕开 CORS/禁设头） */
+      downloadAudioCache?: (cacheKey: string, url: string) => Promise<{ ok: boolean; size?: number; mimeType?: string; error?: string }>;
+      /** 主进程代下载小资源（封面等），以 base64 回传 */
+      fetchRemoteBytes?: (url: string) => Promise<{ ok: boolean; base64?: string; mimeType?: string; error?: string }>;
       getAudioCacheUsage: () => Promise<number>;
       getAudioCacheStats: () => Promise<ElectronAudioCacheStats>;
       clearAudioCache: () => Promise<boolean>;

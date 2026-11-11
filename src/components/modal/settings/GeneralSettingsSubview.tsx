@@ -1,5 +1,5 @@
-import React from 'react';
-import { Languages, LayoutList } from 'lucide-react';
+import React, { useState } from 'react';
+import { Languages, LayoutList, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Theme } from '../../../types';
@@ -8,6 +8,7 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
 import PinnedCommandSettings from './PinnedCommandSettings';
 import { supportsLocalMusicImport } from '../../../platform/runtime';
+import { manualCheckUpdate } from '../../../services/appUpdater';
 
 // src/components/modal/settings/GeneralSettingsSubview.tsx
 // Global app preferences that should stay independent from playback and desktop-only settings.
@@ -24,6 +25,11 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
     theme,
 }) => {
     const { t, i18n } = useTranslation();
+    const [checking, setChecking] = useState(false);
+    const onCheckUpdate = async () => {
+      setChecking(true);
+      try { await manualCheckUpdate(); } finally { setChecking(false); }
+    };
     const {
         appLanguagePreference,
         onAppLanguagePreferenceChange,
@@ -215,6 +221,32 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                             style={{ backgroundColor: showHomeTabDevRecommend ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                         >
                             <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${showHomeTabDevRecommend ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* 检查更新：手动触发版本检查，有新版弹出更新弹窗，无新版提示已是最新 */}
+            <section>
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <RefreshCw size={14} /> {t('options.checkUpdate', '检查更新')}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('options.checkUpdateNow', '检查是否有新版本')}</div>
+                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                {t('options.checkUpdateDesc', '有可用更新会弹出更新窗口；已是最新则提示已是最新版本。')}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            disabled={checking}
+                            onClick={onCheckUpdate}
+                            className="shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors border disabled:opacity-50"
+                            style={{ borderColor: 'var(--accent-color, currentColor)', color: 'var(--accent-color, currentColor)' }}
+                        >
+                            {checking ? t('options.checking', '检查中…') : t('options.checkUpdate', '检查更新')}
                         </button>
                     </div>
                 </div>

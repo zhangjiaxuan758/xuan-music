@@ -8,11 +8,10 @@ import { X as CloseIcon } from 'lucide-react';
 
 // src/components/modal/AiHelpPromptModal.tsx
 
-// 小轩音乐：「遇到问题 / 使用说明」文档一律跳到自建 help.html，不再跳 GitHub。
-const FOLIA_GUIDE_URL = 'https://music.jrr.lol/help.html';
-const FOLIA_DOCS_URL = 'https://music.jrr.lol/help.html';
-const XUAN_REPOSITORY_URL = 'https://github.com/zhangjiaxuan758/xuan-music';
-const FOLIA_REPOSITORY_URL = XUAN_REPOSITORY_URL;
+// 小轩音乐：「遇到问题 / 使用说明」文档一律跳到自建 help.html。
+import { HELP_DOC_URL } from '../../services/secretBox';
+const XUAN_GUIDE_URL = HELP_DOC_URL;
+const XUAN_DOCS_URL = HELP_DOC_URL;
 
 type AiHelpPromptModalProps = {
     isOpen: boolean;
@@ -33,18 +32,16 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
     const [copied, setCopied] = useState(false);
 
     const prompt = useMemo(() => t('aiHelp.prompt', {
-        guideUrl: FOLIA_GUIDE_URL,
-        repoUrl: FOLIA_REPOSITORY_URL,
+        guideUrl: XUAN_GUIDE_URL,
         defaultValue: [
-            '我正在使用「小轩音乐」Android 版（1.6.5 / com.music.xuan），遇到一个问题需要帮助。',
+            `我正在使用「小轩音乐」Android 版（${__APP_VERSION__} / com.music.xuan），遇到一个问题需要帮助。`,
             '',
-            `使用说明：${FOLIA_GUIDE_URL}`,
-            `源码仓库：${FOLIA_REPOSITORY_URL}`,
+            `使用说明：${XUAN_GUIDE_URL}`,
             '',
             '小轩音乐是横屏全屏的 Android 音乐应用，客户端直连网易云官方接口，音源只来自网易云；',
             '登录态只保存在本机；搜索与听歌不需要登录，点赞 / 收藏 / 加歌单需要登录。',
             '',
-            '请先阅读上面的说明与仓库 README，再结合我下面描述的具体问题给出排查步骤。',
+            '请先阅读上面的说明，再结合我下面描述的具体问题给出排查步骤。',
             '如果信息不足，请先向我确认，再给出可以安全尝试的操作步骤。'
         ].join('\n')
     }), [t]);
@@ -103,7 +100,7 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                         </button>
 
                         <div data-xuan-scroll className="relative z-10 flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain xuan-hide-scrollbar pr-1">
-                            {/* 小轩音乐自编文档：内容围绕本应用，仓库链接指向 xuan-music。 */}
+                            {/* 小轩音乐自编文档：内容围绕本应用。 */}
                             <div className="rounded-xl p-1">
                                 <XuanHelpDoc isDaylight={isDaylight} />
                             </div>
@@ -115,7 +112,7 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                             </div>
 
                             <a
-                                href={FOLIA_DOCS_URL}
+                                href={XUAN_DOCS_URL}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`flex items-center gap-3 rounded-xl border p-4 transition hover:-translate-y-0.5 ${panelBg}`}

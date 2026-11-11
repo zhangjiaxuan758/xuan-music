@@ -10,6 +10,7 @@ import {
     EyeOff,
     Globe,
     KeyRound,
+    Keyboard,
     Loader2,
     Minimize2,
     Monitor,
@@ -33,7 +34,7 @@ type ElectronSettingsState = {
     USE_SYSTEM_PROXY_FOR_AI: boolean;
     ENABLE_UPDATE_CHECK: boolean;
     ENABLE_AUTO_UPDATE: boolean;
-    UPDATE_CHANNEL: 'realeco' | 'limo' | 'cielo' | 'internal';
+    UPDATE_CHANNEL: 'stable' | 'preview' | 'canary' | 'internal';
     STAGE_MODE_SOURCE: string;
     DISCORD_RICH_PRESENCE_ENABLED: boolean;
 };
@@ -69,7 +70,7 @@ export type DesktopSettingsModel = {
     onDownloadUpdate: () => Promise<void> | void;
     onInstallUpdate: () => Promise<void> | void;
     onOpenChinaDownload: () => Promise<void> | void;
-    onUpdateChannelChange: (channel: 'realeco' | 'limo' | 'cielo') => Promise<void> | void;
+    onUpdateChannelChange: (channel: 'stable' | 'preview' | 'canary') => Promise<void> | void;
     onSaveElectronSettings: () => Promise<void> | void;
     onToggleAutoUpdate: () => Promise<void> | void;
     onToggleUpdateCheck: () => Promise<void> | void;
@@ -274,7 +275,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                     {t('options.enableUpdateCheck') || 'Enable Update Check'}
                                 </h4>
                                 <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.enableUpdateCheckDesc') || 'Check GitHub releases through the system proxy when the desktop app starts.'}
+                                    {t('options.enableUpdateCheckDesc') || '启动时检查官方服务器是否有新版本。'}
                                 </p>
                             </div>
                         </div>
@@ -298,7 +299,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         <div className="w-44 shrink-0">
                             <CustomSelect
                                 value={electronSettings.UPDATE_CHANNEL}
-                                onChange={(value) => void onUpdateChannelChange(value as 'realeco' | 'limo' | 'cielo')}
+                                onChange={(value) => void onUpdateChannelChange(value as 'stable' | 'preview' | 'canary')}
                                 disabled={electronSettings.UPDATE_CHANNEL === 'internal'}
                                 isDaylight={isDaylight}
                                 theme={theme}
@@ -306,9 +307,9 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                 options={electronSettings.UPDATE_CHANNEL === 'internal'
                                     ? [{ value: 'internal', label: t('options.updateChannelInternal') }]
                                     : [
-                                        { value: 'realeco', label: t('options.updateChannelRealeco') },
-                                        { value: 'limo', label: t('options.updateChannelLimo') },
-                                        { value: 'cielo', label: t('options.updateChannelCielo') },
+                                        { value: 'stable', label: t('options.updateChannelStable') },
+                                        { value: 'preview', label: t('options.updateChannelPreview') },
+                                        { value: 'canary', label: t('options.updateChannelCanary') },
                                     ]}
                             />
                         </div>
@@ -345,7 +346,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                 )}
 
                 <div className="text-[10px] opacity-45 px-1 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
-                    {t('options.autoUpdateGithubNotice') || 'Auto update needs access to GitHub; if the network is unstable, keep a system proxy enabled.'}
+                    {t('options.autoUpdateServerNotice') || '自动更新需要连接官方服务器；网络不稳定时可能无法下载更新。'}
                 </div>
 
                 {updateStatus?.availableVersion && (
@@ -373,7 +374,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         ) : (
                             electronSettings.ENABLE_AUTO_UPDATE && updateStatus.status === 'downloading' && (
                                 <div className="text-xs text-left text-zinc-400">
-                                    {t('options.autoUpdateGithubNotice')}
+                                    {t('options.autoUpdateServerNotice')}
                                 </div>
                             )
                         )}
@@ -413,7 +414,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                 <ExternalLink size={14} />
                                 {t('options.openReleasePage') || 'Open Release Page'}
                             </button>
-                            {electronSettings.UPDATE_CHANNEL === 'realeco' && updateStatus.platform !== 'linux' && (
+                            {electronSettings.UPDATE_CHANNEL === 'stable' && updateStatus.platform !== 'linux' && (
                                 <button
                                     type="button"
                                     onClick={onOpenChinaDownload}
@@ -421,7 +422,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                     style={{ color: 'var(--text-primary)' }}
                                 >
                                     <ExternalLink size={14} />
-                                    {t('options.downloadChina')}
+                                    {t('options.downloadOfficial')}
                                 </button>
                             )}
                             {!electronSettings.ENABLE_AUTO_UPDATE && (
@@ -450,7 +451,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
 
                         {updateStatus.platform !== 'linux' && (
                             <div className="text-xs opacity-50 pt-1 text-left" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.chinaDownloadHint')}
+                                {t('options.officialDownloadHint')}
                             </div>
                         )}
                     </div>
@@ -639,6 +640,44 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                 <span>{t('options.save') || 'Save'}</span>
                             )}
                         </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                    <Keyboard size={14} className="opacity-70" /> 键盘快捷键
+                </h3>
+                <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
+                    <div className={`p-4 bg-black/[0.04] dark:bg-white/[0.02] border-b ${borderColor}`}>
+                        <p className="text-xs opacity-60 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
+                            桌面端内置以下键盘快捷键，输入框内可直接复制粘贴；安卓端无键盘，不受影响。
+                        </p>
+                    </div>
+                    <div className="divide-y" style={{ borderColor }}>
+                        {[
+                            { label: '复制 / 剪切 / 粘贴', keys: ['Ctrl+C', 'Ctrl+X', 'Ctrl+V'] },
+                            { label: '撤销 / 重做', keys: ['Ctrl+Z', 'Ctrl+Shift+Z'] },
+                            { label: '全选', keys: ['Ctrl+A'] },
+                            { label: '放大 / 缩小 / 重置缩放', keys: ['Ctrl+=', 'Ctrl+-', 'Ctrl+0'] },
+                            { label: '切换全屏', keys: ['F11'] },
+                            { label: '最小化 / 关闭窗口', keys: ['Ctrl+M', 'Ctrl+W'] },
+                        ].map((row) => (
+                            <div key={row.label} className="flex items-center justify-between p-4 gap-4">
+                                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{row.label}</span>
+                                <span className="flex items-center gap-1.5 shrink-0">
+                                    {row.keys.map((k) => (
+                                        <kbd
+                                            key={k}
+                                            className="px-2 py-0.5 rounded-md border text-[10px] font-mono leading-none"
+                                            style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-secondary, rgba(128,128,128,0.3))' }}
+                                        >
+                                            {k}
+                                        </kbd>
+                                    ))}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>

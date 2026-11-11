@@ -49,7 +49,7 @@ description: Use when the user refers to repository-specific terms such as home 
   -> overlay host: `src/components/app/home/GridViewOverlayHost.tsx`
 
 - “隐藏歌单”“歌单隐藏过滤”
-  -> `isPlaylistHidden` / `hiddenPlaylistKeys` in `src/components/Grid3D.tsx`, `src/components/GridMap.tsx`, `src/components/folia-grid/DesktopGrid3DSurface.tsx`
+  -> `isPlaylistHidden` / `hiddenPlaylistKeys` in `src/components/Grid3D.tsx`, `src/components/GridMap.tsx`, `src/components/xuan-grid/DesktopGrid3DSurface.tsx`
 
 - “文件夹排序”“本地排序策略”
   -> `localFolderSortStrategy` in `src/components/GridView.tsx`
@@ -218,7 +218,7 @@ description: Use when the user refers to repository-specific terms such as home 
   -> bridge hook: `src/hooks/useAppPreferences.ts`
   -> related type in `src/types.ts`
 
-- “更新通道”“limo 通道”“cielo 通道”
+- “更新通道”“preview 通道”“canary 通道”
   -> `electron/updateChannels.cjs` / `electron/main.cjs`
 
 - “自定义字重”
