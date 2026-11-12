@@ -55,6 +55,8 @@ let updateListener: ((u: UpdateInfo) => void) | null = null;
 export interface UpdateInfo {
   versionCode: number; versionName: string; changelog: string;
   downloadUrl: string; force: boolean; hasApk: boolean;
+  /** 服务端对发布包做完整签名/包名校验后登记的整包 SHA-256 与字节数，端上下载后逐字节复核 */
+  sha256?: string; size?: number;
 }
 
 // ---------------------------------------------------------------- 基础 HTTP
@@ -274,6 +276,7 @@ export async function checkUpdate(notify = true, platform: 'android' | 'windows'
     versionCode: r.versionCode, versionName: r.versionName,
     changelog: r.changelog, downloadUrl: r.downloadUrl,
     force: r.force, hasApk: r.hasApk,
+    sha256: r.sha256, size: r.size,
   };
   if (notify && updateListener) updateListener(info);
   return info;

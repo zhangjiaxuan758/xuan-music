@@ -1312,6 +1312,42 @@ function setupAutoUpdater() {
   });
 
   updater.on('update-downloaded', (info) => {
+    // 附加完整性校验：electron-updater 已按 latest.yml 校验 sha512，这里再验证实际落盘的
+    // 安装包是结构完整的 PE（MZ + PE 头 + 体积下限），防止损坏/伪造包进入安装器。
+    // 校验失败时把状态置为 error，updates-quit-and-install 会因状态不是 'downloaded' 而拒绝安装。
+    try {
+      const f = info && info.downloadedFile;
+      if (f && fs.existsSync(f)) {
+        let ok = false;
+        const fd = fs.openSync(f, 'r');
+        try {
+          const head = Buffer.alloc(64);
+          fs.readSync(fd, head, 0, 64, 0);
+          const st = fs.fstatSync(fd);
+          const peOff = head.readUInt32LE(60);
+          let peOk = false;
+          if (peOff > 0 && peOff + 4 <= st.size) {
+            const pe = Buffer.alloc(4);
+            fs.readSync(fd, pe, 0, 4, peOff);
+            peOk = pe[0] === 0x50 && pe[1] === 0x45 && pe[2] === 0 && pe[3] === 0;
+          }
+          ok = st.size >= 1024 * 1024 && head[0] === 0x4d && head[1] === 0x5a && peOk;
+        } finally {
+          fs.closeSync(fd);
+        }
+        if (!ok) {
+          setUpdateState({
+            status: 'error',
+            error: '更新包完整性校验失败，已阻止安装',
+            downloadProgress: null,
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      // 读取异常不硬拦（electron-updater 自身已完成 sha512 校验），仅记录告警
+      console.error('[Updater] installer integrity check error', error);
+    }
     setUpdateState({
       status: 'downloaded',
       availableVersion: normalizeVersion(info?.version) || updateState.availableVersion,

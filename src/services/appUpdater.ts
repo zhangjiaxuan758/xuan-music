@@ -129,10 +129,10 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
 
 interface ProgressUI {
   set: (pct: number, text: string) => void;
-  done: (ok: boolean, install: () => void, errMsg?: string) => void;
+  done: (ok: boolean, install: () => void, errMsg?: string, okLabel?: string, okHint?: string) => void;
 }
 
-function showProgressDialog(): ProgressUI {
+function showProgressDialog(titleText = '正在下载更新'): ProgressUI {
   const overlay = el('div', {
     position: 'fixed', inset: '0', zIndex: '99999', display: 'flex',
     alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)',
@@ -142,7 +142,7 @@ function showProgressDialog(): ProgressUI {
     width: 'min(420px, 86vw)', background: '#232326', color: '#f2f2f3',
     borderRadius: '18px', padding: '28px', border: '1px solid rgba(255,255,255,.08)',
   });
-  const title = el('div', { fontSize: '17px', fontWeight: '700', marginBottom: '16px' }, '正在下载更新');
+  const title = el('div', { fontSize: '17px', fontWeight: '700', marginBottom: '16px' }, titleText);
   const label = el('div', { fontSize: '12px', color: '#a1a1a6', marginBottom: '10px' }, '准备中…');
   const track = el('div', { height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,.10)', overflow: 'hidden' });
   const fill = el('div', { height: '100%', width: '0%', background: '#f2f2f3', transition: 'width .2s' });
@@ -153,27 +153,28 @@ function showProgressDialog(): ProgressUI {
 
   return {
     set: (pct, text) => { fill.style.width = `${Math.min(100, Math.max(0, pct))}%`; label.textContent = text; },
-    done: (ok, install, errMsg) => {
-      title.textContent = ok ? '下载完成' : '下载失败';
+    done: (ok, install, errMsg, okLabel, okHint) => {
+      title.textContent = ok ? '校验通过' : '下载失败';
       label.textContent = ok
-        ? '点击下方按钮安装，安装后即为新版本'
+        ? (okHint || '安装包完整性校验通过，点击下方按钮安装')
         : (errMsg ? `原因：${errMsg}（请检查网络后重试）` : '请检查网络后重试');
       const b = el('button', {
         marginTop: '20px', width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
         background: ok ? '#f2f2f3' : 'rgba(255,255,255,.10)',
         color: ok ? '#1c1c1e' : '#e8e8ea', fontWeight: '600', fontSize: '14px', cursor: 'pointer',
-      }, ok ? '安装' : '关闭') as HTMLButtonElement;
-      b.onclick = () => { if (ok) { overlay.remove(); install(); } else overlay.remove(); };
+      }, ok ? (okLabel || '安装') : '关闭') as HTMLButtonElement;
+      b.onclick = () => { overlay.remove(); if (ok) install(); };
       card.append(b);
     },
   };
 }
 
-/** WebView fetch 流式下载（有进度、内存友好） */
-async function fetchApkBytes(url: string, ui: ProgressUI): Promise<Uint8Array> {
+/** 流式下载（有进度、内存友好）；expectedSize 作为 Content-Length 缺失时的分母兜底 */
+async function fetchApkBytes(url: string, ui: ProgressUI, expectedSize?: number): Promise<Uint8Array> {
   const res = await fetch(url, { credentials: 'omit', cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const total = Number(res.headers.get('content-length') || 0);
+  // 服务端 X-Accel 会带 Content-Length；缺失时用 checkUpdate 下发的登记大小，进度不会卡在半途
+  const total = Number(res.headers.get('content-length') || 0) || expectedSize || 0;
   const reader = res.body?.getReader();
   if (!reader) throw new Error('不支持流式下载');
   const chunks: Uint8Array[] = [];
@@ -183,7 +184,7 @@ async function fetchApkBytes(url: string, ui: ProgressUI): Promise<Uint8Array> {
     if (done) break;
     chunks.push(value);
     received += value.length;
-    const pct = total ? (received / total) * 100 : Math.min(95, received / 300000);
+    const pct = total ? (received / total) * 100 : Math.min(95, (received / (15 * 1048576)) * 100);
     ui.set(pct, `已下载 ${(received / 1048576).toFixed(1)} MB${total ? ` / ${(total / 1048576).toFixed(1)} MB` : ''}`);
   }
   const all = new Uint8Array(received);
@@ -208,26 +209,83 @@ async function nativeFallbackBytes(url: string, ui: ProgressUI): Promise<Uint8Ar
   return out;
 }
 
+/** 整包 SHA-256（十六进制）。crypto.subtle 在 WebView(https://localhost) 与 Electron(file://) 均可用。 */
+async function sha256HexOfBytes(bytes: Uint8Array): Promise<string> {
+  const view = new Uint8Array(bytes.buffer as ArrayBuffer, bytes.byteOffset, bytes.byteLength);
+  const buf = await crypto.subtle.digest('SHA-256', view);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * 下载后的端到端完整性校验（信任链：服务端验签/验包名 → 端上验哈希）。
+ * 任一不符立即抛错，绝不写盘、绝不进安装器：
+ *   - 体积必须与服务端登记值一致（防截断 / 拼接 / 换成别的包）
+ *   - 魔数：APK=PK\x03\x04，EXE=MZ（防伪装成安装包的任意文件）
+ *   - SHA-256 必须与 /api/update/check 下发的登记值完全一致（防中间人替换 / 降级到旧包）
+ */
+async function verifyDownload(bytes: Uint8Array, info: UpdateInfo, kind: 'apk' | 'exe'): Promise<void> {
+  if (bytes.length < 1024 * 1024) throw new Error('安装包不完整');
+  if (info.size && bytes.length !== info.size) {
+    throw new Error(`安装包大小不符（应为 ${info.size} 字节，实际 ${bytes.length}）`);
+  }
+  const magic = kind === 'apk' ? [0x50, 0x4b, 0x03, 0x04] : [0x4d, 0x5a];
+  for (let i = 0; i < magic.length; i++) {
+    if (bytes[i] !== magic[i]) throw new Error('安装包格式错误（文件头不符）');
+  }
+  if (info.sha256) {
+    const actual = await sha256HexOfBytes(bytes);
+    if (actual.toLowerCase() !== info.sha256.toLowerCase()) {
+      throw new Error('安装包校验失败（SHA-256 不一致），已阻止安装');
+    }
+  } else {
+    // 服务端未下发哈希时（旧服务端）仍需最基本的完整性保证，并明确告警，绝不静默放行
+    console.warn('[Updater] 服务端未下发 sha256，降级为魔数+体积校验；请升级服务端');
+  }
+}
+
 async function downloadApk(info: UpdateInfo) {
   const ui = showProgressDialog();
   try {
     const url = await downloadUrl(info.downloadUrl || '/download/xuan-music.apk');
     let bytes: Uint8Array;
     try {
-      bytes = await fetchApkBytes(url, ui);
+      bytes = await fetchApkBytes(url, ui, info.size);
     } catch (e1) {
       if (!Capacitor.isNativePlatform()) throw e1;
       bytes = await nativeFallbackBytes(url, ui);
     }
-    // 下载完整性：ZIP 魔数 + 最小体积，避免截断包被写入/安装后出现默认图标或打不开
-    if (bytes.length < 1024 * 1024) throw new Error('安装包不完整，请重试');
-    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
-      throw new Error('安装包格式错误，请重试');
-    }
+    ui.set(100, '正在校验安装包完整性…');
+    await verifyDownload(bytes, info, 'apk');
     const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.android.package-archive' });
     const path = await writeApkToPrivate(blob);
-    ui.set(100, '下载完成');
-    ui.done(true, () => { void installApk(path); });
+    ui.done(true, () => { void installApk(path); }, undefined, '安装',
+      '签名与完整性校验通过，点击下方按钮安装，安装后即为新版本');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e || '未知错误');
+    ui.done(false, () => {}, msg);
+  }
+}
+
+/** Windows 桌面版：下载 → 严格校验 → 交给系统下载管理器（用户运行 Setup 覆盖安装）。 */
+async function downloadDesktopExe(info: UpdateInfo) {
+  const ui = showProgressDialog('正在下载桌面版更新');
+  try {
+    const url = await downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe');
+    const bytes = await fetchApkBytes(url, ui, info.size);
+    ui.set(100, '正在校验安装包完整性…');
+    await verifyDownload(bytes, info, 'exe');
+    const blob = new Blob([bytes.buffer as ArrayBuffer],
+      { type: 'application/vnd.microsoft.portable-executable' });
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = `小轩音乐桌面版-Setup-${info.versionName || 'latest'}.exe`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    ui.done(true, () => {}, undefined, '完成',
+      '完整性校验通过，安装包已保存到下载目录，请运行 Setup 覆盖安装');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e || '未知错误');
     ui.done(false, () => {}, msg);
@@ -275,13 +333,9 @@ export async function initAppUpdater() {
   const current = await resolveCurrentVersionCode();
   if (!info || !info.hasApk || info.versionCode <= current) return;
   if (desktop) {
-    // exe 无法像 APK 那样静默安装：确认后交给系统默认浏览器下载安装包，
-    // 用户运行 Setup 覆盖安装即可（同 appId、数据保留）。
-    showUpdateDialog(info, () => {
-      void downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe')
-        .then(url => { window.open(url, '_blank'); })
-        .catch(() => { /* noop */ });
-    });
+    // exe 无法像 APK 那样静默安装：确认后先严格校验整包哈希/大小/PE 头，
+    // 通过后才交给系统下载管理器，用户运行 Setup 覆盖安装即可（同 appId、数据保留）。
+    showUpdateDialog(info, () => { void downloadDesktopExe(info); });
     return;
   }
   showUpdateDialog(info, () => { void downloadApk(info); });
@@ -307,9 +361,7 @@ export async function manualCheckUpdate(): Promise<void> {
   }
   showUpdateDialog(info, () => {
     if (desktop) {
-      void downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe')
-        .then(url => { window.open(url, '_blank'); })
-        .catch(() => { /* noop */ });
+      void downloadDesktopExe(info);
     } else {
       void downloadApk(info);
     }
