@@ -1052,7 +1052,7 @@ export const readStoredLocalLyricsPriority = (): LocalLyricsPriority => {
 };
 
 const readStoredPreferredAlternativeLyricSource = (): LyricProviderSource => {
-    if (typeof window === 'undefined') return 'qq';
+    if (typeof window === 'undefined') return 'netease';
     const versioned = localStorage.getItem(PREFERRED_LYRIC_SOURCE_STORAGE_KEY_V2);
     const legacy = localStorage.getItem('preferred_alternative_lyric_source');
     const migrated = migratePreferredLyricSource(versioned, legacy);

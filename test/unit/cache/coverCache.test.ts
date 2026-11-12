@@ -100,36 +100,18 @@ describe('coverCache', () => {
         expect(saveToCacheMock).toHaveBeenCalledWith('cover_local_song-id', descriptor);
     });
 
-    it('fetches QQ cover blobs through the same-origin proxy in web builds', async () => {
-        const blob = new Blob(['qq-cover'], { type: 'image/jpeg' });
+    it('fetches NetEase cover blobs directly without a third-party proxy', async () => {
+        const blob = new Blob(['netease-cover'], { type: 'image/jpeg' });
         const descriptor = { backend: 'opfs' as const, mimeType: 'image/jpeg', size: blob.size, updatedAt: 1 };
         writeCoverAssetMock.mockResolvedValue(descriptor);
         const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: vi.fn().mockResolvedValue(blob) });
         globalThis.fetch = fetchMock as unknown as typeof fetch;
-        const coverUrl = 'https://y.gtimg.cn/music/photo_new/T002R300x300M000album.jpg?max_age=2592000';
+        const coverUrl = 'https://p1.music.126.net/6y-UleORITEDbvrOLV0Q8A==/109951163000000000.jpg';
 
-        await expect(cacheLocalSongOnlineCover('qq-song', coverUrl)).resolves.toBe(true);
-        expect(fetchMock).toHaveBeenCalledWith(
-            `/api/lyric-proxy?url=${encodeURIComponent(coverUrl)}`,
-            { mode: 'cors' },
-        );
-        expect(saveToCacheMock).toHaveBeenCalledWith('cover_local_qq-song', descriptor);
-    });
-
-    it('fetches KuGou cover blobs through the same-origin proxy in web builds', async () => {
-        const blob = new Blob(['kugou-cover'], { type: 'image/jpeg' });
-        const descriptor = { backend: 'opfs' as const, mimeType: 'image/jpeg', size: blob.size, updatedAt: 1 };
-        writeCoverAssetMock.mockResolvedValue(descriptor);
-        const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: vi.fn().mockResolvedValue(blob) });
-        globalThis.fetch = fetchMock as unknown as typeof fetch;
-        const coverUrl = 'https://imge.kugou.com/stdmusic/400/cover.jpg';
-
-        await expect(cacheLocalSongOnlineCover('kugou-song', coverUrl)).resolves.toBe(true);
-        expect(fetchMock).toHaveBeenCalledWith(
-            `/api/lyric-proxy?url=${encodeURIComponent(coverUrl)}`,
-            { mode: 'cors' },
-        );
-        expect(saveToCacheMock).toHaveBeenCalledWith('cover_local_kugou-song', descriptor);
+        await expect(cacheLocalSongOnlineCover('netease-song', coverUrl)).resolves.toBe(true);
+        // 网易云封面直连，绝不再经过任何第三方代理端点。
+        expect(fetchMock).toHaveBeenCalledWith(coverUrl, { mode: 'cors' });
+        expect(saveToCacheMock).toHaveBeenCalledWith('cover_local_netease-song', descriptor);
     });
 
     afterEach(() => {

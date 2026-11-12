@@ -38,11 +38,12 @@ const song: UnifiedSong = {
 describe('neteaseProvider', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('maps semantic high quality to the NetEase exhigh value', async () => {
+    it('maps semantic high quality to the NetEase exhigh value and reports the official level', async () => {
         vi.mocked(neteaseApi.getSongUrl).mockResolvedValue({ data: [{ url: 'http://music.test/song.mp3' }] } as any);
+        // 返回的 quality 是网易云官方真实 level（用于「当前音质」显示），而非请求语义值。
         await expect(neteaseProvider.playback!.getAudioSource(song, 'high')).resolves.toMatchObject({
             url: 'https://music.test/song.mp3',
-            quality: 'high',
+            quality: 'exhigh',
         });
         expect(neteaseApi.getSongUrl).toHaveBeenCalledWith(42, 'exhigh');
     });

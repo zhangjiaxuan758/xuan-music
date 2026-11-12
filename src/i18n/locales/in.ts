@@ -414,8 +414,6 @@
     "songs": "lagu",
     "loginTitle": "Pindai dengan Aplikasi Netease",
     "loginNote": "Buka Aplikasi Netease Music, pindai dan konfirmasi di ponsel (masuk perangkat seluler)",
-    "loginTitleKugou": "Pindai dengan KuGou Music",
-    "loginNoteKugou": "Buka KuGou Music dan pindai kode QR ini",
     "loadingQr": "Memuat QR...",
     "scanQr": "Silakan pindai kode QR",
     "qrExpired": "Kode QR kedaluwarsa. Segarkan untuk mencoba lagi.",
@@ -492,9 +490,7 @@
   },
   "lyricProvider": {
     "netease": "NetEase Cloud Music",
-    "qq": "QQ Music",
-    "kugou": "Kugou Music",
-    "amll": "AMLLDB"
+    "amll": "NetEase Cloud Music"
   },
   "lyricFilter": {
     "title": "Filter Lirik Regex",
@@ -608,7 +604,7 @@
     "disableHomeDynamicBackgroundDesc": "Saat diaktifkan, halaman beranda menghentikan animasi latar belakang untuk mengurangi penggunaan GPU.",
     "disableHomeDynamicBackgroundWarning": "Secara default mati, jadi latar belakang dinamis tetap aktif kecuali Anda mengaktifkannya.",
     "autoUseBestLyric": "Otomatis Pakai Lirik Terbaik",
-    "autoUseBestLyricDesc": "Otomatis cari lirik NetEase, AMLLDB, QQ, dan Kugou, mengutamakan lirik per-kata dengan kecocokan waktu sempurna.",
+    "autoUseBestLyricDesc": "Automatically searches NetEase Cloud Music lyrics and prefers a perfect word-by-word match.",
     "lyricMatchPriority": "Prioritas pencocokan lirik",
     "lyricMatchPriorityDesc": "Saat beberapa sumber lirik memiliki kecocokan tinggi, utamakan sumber ini terlebih dahulu.",
     "labHidePlayerUi": "Sembunyikan UI Pemutar",
@@ -1180,8 +1176,6 @@
     "searchForSong": "Cari lagu...",
     "search": "Cari",
     "neteaseSource": "NetEase",
-    "qqSource": "QQ Music",
-    "kugouSource": "KuGou Music",
     "searching": "Mencari...",
     "noResults": "Tidak ada hasil ditemukan. Coba kueri pencarian berbeda.",
     "matchLyrics": "Cocokkan Data",
@@ -1230,7 +1224,6 @@
     "resetLyricTimelineOffset": "Reset offset garis waktu",
     "coverSource": "Sampul",
     "metadataSource": "Metadata",
-    "kugouNoCover": "Kugou tidak menyediakan sampul, jadi sampul lokal akan dipertahankan.",
     "artistLabel": "Artis",
     "albumLabel": "Album",
     "noSelection": "Pilih lagu di sebelah kiri",

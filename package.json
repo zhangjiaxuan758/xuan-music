@@ -7,7 +7,7 @@
     "email": "xuan@music.jrr.lol"
   },
   "private": true,
-  "version": "1.6.5",
+  "version": "1.7.10",
   "license": "AGPL-3.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -34,7 +34,6 @@
     "test:ui:update": "playwright test --update-snapshots",
     "benchmark:lyrics": "npx tsx test/manual/lyrics_benchmark.ts",
     "manual:lyrics": "npx tsx test/manual/netease_lyrics_cli.ts",
-    "audit:lyrics-sources": "npx tsx test/manual/lyric-audit/index.ts",
     "probe:netease-xeapi": "node test/manual/netease_xeapi_probe.cjs",
     "stage:client": "vite --open /stage-client.html",
     "dev:electron": "cross-env ELECTRON_DEV=true concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",

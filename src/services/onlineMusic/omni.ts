@@ -80,7 +80,7 @@ export const omni = {
         const accounts = useOnlineProviderAccountStore.getState().accounts;
         // 小轩音乐只提供网易云音源：酷狗没有可用的公共后端，
         // 从 UI 摘要列表中移除，连接面板与切换器都只显示网易云。
-        // 注册表中仍保留 kugouProvider，避免历史缓存歌曲 / 歌单解析时抛错。
+        // 小轩音乐只提供网易云：注册表只登记 netease，这里仍显式过滤一次做双保险。
         const visibleProviders = listOnlineMusicProviders().filter(provider => provider.id === 'netease');
         return visibleProviders.map(provider => {
             const account = accounts[provider.id];

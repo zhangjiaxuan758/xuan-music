@@ -7,7 +7,6 @@ const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
 const { createStageApi } = require('./stageApi.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
-const { createKugouApiBridge } = require('./kugouApiBridge.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
 const { createVoiceInputPauseMonitor } = require('./voiceInputPause.cjs');
 const { getReleaseUrl, getUpdateProviderConfig, resolveReleaseChannel } = require('./updateChannels.cjs');
@@ -21,25 +20,9 @@ const linuxGraphicsMode =
     ? 'system'
     : (process.env.XUAN_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
 
-// Trusts only the known KuGou media CDN hostname mismatch while preserving TLS checks elsewhere.
-app.on('certificate-error', (event, _webContents, requestUrl, error, _certificate, callback) => {
-  let isAllowedKugouMediaRequest = false;
-  try {
-    const parsedUrl = new URL(requestUrl);
-    isAllowedKugouMediaRequest =
-      parsedUrl.protocol === 'https:' &&
-      parsedUrl.hostname === 'fs.youthandroid2.kugou.com' &&
-      error === 'net::ERR_CERT_COMMON_NAME_INVALID';
-  } catch {
-    isAllowedKugouMediaRequest = false;
-  }
-
-  if (isAllowedKugouMediaRequest) {
-    event.preventDefault();
-    callback(true);
-    return;
-  }
-
+// 小轩音乐只提供网易云音源：一律保持 Chromium 默认证书校验，
+// 不再为任何第三方音源 CDN 的证书错误开绿灯。
+app.on('certificate-error', (event, _webContents, _requestUrl, _error, _certificate, callback) => {
   callback(false);
 });
 
@@ -73,7 +56,6 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 }
 
 const store = new Store({ projectName: 'Xuan' });
-const kugouApiBridge = createKugouApiBridge({ store });
 
 // --- Electron main process locale map ---
 const APP_LOCALE_KEY = 'APP_LOCALE';
@@ -908,142 +890,11 @@ function setupFileSystemAccessPermissionHandlers() {
 }
 
 function setupCorsBypassHandlers() {
-  const ses = session.defaultSession;
-
-  const getKugouMediaRequestInfo = details => {
-    const parsedUrl = new URL(details.url);
-    const isMediaRequest = details.resourceType === 'media' || parsedUrl.hostname.startsWith('fs.');
-    return isMediaRequest ? {
-      protocol: parsedUrl.protocol,
-      hostname: parsedUrl.hostname,
-      resourceType: details.resourceType,
-    } : null;
-  };
-  ses.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    const originUrl = details.url;
-
-    let isTargetDomain = false;
-    try {
-      const parsedUrl = new URL(originUrl);
-      const hostname = parsedUrl.hostname;
-      isTargetDomain =
-        hostname === 'qq.com' ||
-        hostname.endsWith('.qq.com') ||
-        hostname === 'y.gtimg.cn' ||
-        hostname === 'kugou.com' ||
-        hostname.endsWith('.kugou.com') ||
-        hostname === 'amll-ttml-db.stevexmh.net';
-    } catch (error) {
-      isTargetDomain = false;
-    }
-
-    if (isTargetDomain) {
-      removeCorsResponseHeaders(responseHeaders);
-      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
-      responseHeaders['Access-Control-Allow-Headers'] = ['*'];
-      responseHeaders['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS, PUT, DELETE'];
-    }
-
-    callback({ cancel: false, responseHeaders });
-  });
-
-  ses.webRequest.onErrorOccurred({ urls: ['*://*.kugou.com/*'] }, details => {
-    const requestInfo = getKugouMediaRequestInfo(details);
-    if (!requestInfo) return;
-    if (requestInfo.resourceType === 'media' && details.error === 'net::ERR_FAILED') return;
-    console.warn('[KuGouMedia] request:error', {
-      ...requestInfo,
-      error: details.error,
-    });
-  });
+  // 小轩音乐只提供网易云音源：不再为任何第三方音源域名改写 CORS / 忽略媒体错误。
+  // 网易云资源由同源通道与服务端正常处理，这里保持 Electron 默认安全策略。
 }
 
-function removeCorsResponseHeaders(responseHeaders) {
-  for (const headerName of Object.keys(responseHeaders)) {
-    const normalizedHeaderName = headerName.toLowerCase();
-    if (
-      normalizedHeaderName === 'access-control-allow-origin' ||
-      normalizedHeaderName === 'access-control-allow-headers' ||
-      normalizedHeaderName === 'access-control-allow-methods'
-    ) {
-      delete responseHeaders[headerName];
-    }
-  }
-}
-
-function isAllowedLyricProxyHost(hostname) {
-  return (
-    hostname === 'qq.com' ||
-    hostname.endsWith('.qq.com') ||
-    hostname === 'y.gtimg.cn' ||
-    hostname === 'kugou.com' ||
-    hostname.endsWith('.kugou.com') ||
-    hostname === 'kgimg.com' ||
-    hostname.endsWith('.kgimg.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net'
-  );
-}
-
-function isAmllDbHost(hostname) {
-  return hostname === 'amll-ttml-db.stevexmh.net';
-}
-
-async function proxyLyricRequest(targetUrlStr, init = {}) {
-  const targetUrl = new URL(targetUrlStr);
-  const hostname = targetUrl.hostname;
-  const isAmllDbRequest = isAmllDbHost(hostname);
-
-  if (!isAllowedLyricProxyHost(hostname)) {
-    throw new Error(`Forbidden lyric proxy host: ${hostname}`);
-  }
-
-  if (isAmllDbRequest) {
-    console.log(`[AMLL Proxy] ${typeof init?.method === 'string' ? init.method : 'GET'} ${targetUrl.toString()}`);
-  }
-
-  const headers = new Headers(init?.headers || {});
-  headers.delete('host');
-  headers.delete('connection');
-  headers.delete('content-length');
-  headers.delete('origin');
-  headers.delete('referer');
-
-  const response = await fetch(targetUrl.toString(), {
-    method: typeof init?.method === 'string' ? init.method : 'GET',
-    headers,
-    body: init?.body,
-  });
-
-  if (isAmllDbRequest) {
-    console.log(`[AMLL Proxy] Response ${response.status} ${targetUrl.toString()}`);
-  }
-
-  if (isAmllDbRequest && response.status === 404) {
-    console.log(`[AMLL Proxy] Convert 404 -> 204 ${targetUrl.toString()}`);
-    return {
-      ok: true,
-      status: 204,
-      statusText: 'No Content',
-      headers: {},
-      bodyText: '',
-    };
-  }
-
-  const normalizedHeaders = {};
-  for (const [key, value] of response.headers.entries()) {
-    normalizedHeaders[key] = value;
-  }
-
-  return {
-    ok: response.ok,
-    status: response.status,
-    statusText: response.statusText,
-    headers: normalizedHeaders,
-    bodyText: await response.text(),
-  };
-}
-
+// 小轩音乐只提供网易云：第三方歌词代理通道已整体移除，不再转发任意外部 URL。
 function normalizeDebugSelector(selector) {
   if (typeof selector !== 'string') {
     return '';
@@ -3413,9 +3264,6 @@ ipcMain.handle('get-netease-api-status', () => {
   return neteaseApiStatus;
 });
 
-ipcMain.handle('kugou-api-status', () => kugouApiBridge.getStatus());
-ipcMain.handle('kugou-api-request', (_event, operation, params) => kugouApiBridge.request(operation, params));
-
 ipcMain.handle('window-minimize', () => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
@@ -3957,18 +3805,6 @@ ipcMain.handle('debug-get-rendered-fonts', async (event, selector) => {
   }
 
   return getRenderedFontReport(selector);
-});
-
-ipcMain.handle('lyric-proxy-fetch', async (event, url, init) => {
-  if (!isTrustedMainWindowContents(event.sender)) {
-    throw new Error('Untrusted renderer attempted to fetch lyric proxy data.');
-  }
-
-  if (typeof url !== 'string' || !url) {
-    throw new Error('Missing lyric proxy url.');
-  }
-
-  return proxyLyricRequest(url, init);
 });
 
 // Integrate AI logic locally into Electron

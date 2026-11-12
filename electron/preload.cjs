@@ -36,7 +36,6 @@ contextBridge.exposeInMainWorld('electron', {
     getCoverCacheUsage: () => ipcRenderer.invoke('get-cover-cache-usage'),
     clearCoverCache: () => ipcRenderer.invoke('clear-cover-cache'),
     generateTheme: (lyricsText, options) => ipcRenderer.invoke('generate-theme', lyricsText, options),
-    fetchLyricProxy: (url, init) => ipcRenderer.invoke('lyric-proxy-fetch', url, init),
     getNeteasePort: () => ipcRenderer.invoke('get-netease-port'),
     getNeteaseApiStatus: () => ipcRenderer.invoke('get-netease-api-status'),
     onNeteaseApiStatusChanged: (callback) => {
@@ -44,8 +43,6 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('netease-api-status-changed', listener);
         return () => ipcRenderer.removeListener('netease-api-status-changed', listener);
     },
-    getKugouApiStatus: () => ipcRenderer.invoke('kugou-api-status'),
-    kugouRequest: (operation, params) => ipcRenderer.invoke('kugou-api-request', operation, params),
     minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
     toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),
     toggleFullscreenWindow: () => ipcRenderer.invoke('window-toggle-fullscreen'),

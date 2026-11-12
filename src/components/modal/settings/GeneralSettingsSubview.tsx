@@ -9,6 +9,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import PinnedCommandSettings from './PinnedCommandSettings';
 import { supportsLocalMusicImport } from '../../../platform/runtime';
 import { manualCheckUpdate } from '../../../services/appUpdater';
+import FrameRateSection from './FrameRateSection';
 
 // src/components/modal/settings/GeneralSettingsSubview.tsx
 // Global app preferences that should stay independent from playback and desktop-only settings.
@@ -252,6 +253,8 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                 </div>
             </section>
 
+            {/* 帧率：安卓客户端可调档位，桌面端/网页端显示跟随系统说明 */}
+            <FrameRateSection settingsCardClass={settingsCardClass} isDaylight={isDaylight} />
 
             <PinnedCommandSettings
                 isDaylight={isDaylight}

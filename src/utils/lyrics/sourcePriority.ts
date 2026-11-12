@@ -2,29 +2,26 @@ import type { LyricProviderSource } from '../../types';
 
 // src/utils/lyrics/sourcePriority.ts
 
-export const DEFAULT_PREFERRED_LYRIC_SOURCE: LyricProviderSource = 'qq';
+// 小轩音乐只提供网易云：歌词来源固定为 netease。
+export const DEFAULT_PREFERRED_LYRIC_SOURCE: LyricProviderSource = 'netease';
 
-const BASE_LYRIC_SOURCE_ORDER: readonly LyricProviderSource[] = ['netease', 'amll', 'qq', 'kugou'];
+const BASE_LYRIC_SOURCE_ORDER: readonly LyricProviderSource[] = ['netease'];
 
+// 历史缓存里可能残留 'qq' | 'kugou' | 'amll'，一律归一为 netease，避免再向第三方发请求。
 export const isLyricProviderSource = (value: unknown): value is LyricProviderSource => (
     value === 'netease' || value === 'amll' || value === 'qq' || value === 'kugou'
 );
 
 // Places the user preference first while retaining every fallback source exactly once.
 export const buildLyricSourceOrder = (
-    preferredSource: LyricProviderSource = DEFAULT_PREFERRED_LYRIC_SOURCE,
-): LyricProviderSource[] => [
-    preferredSource,
-    ...BASE_LYRIC_SOURCE_ORDER.filter(source => source !== preferredSource),
-];
+    _preferredSource: LyricProviderSource = DEFAULT_PREFERRED_LYRIC_SOURCE,
+): LyricProviderSource[] => [...BASE_LYRIC_SOURCE_ORDER];
 
 export const migratePreferredLyricSource = (
     versionedValue: unknown,
     legacyValue: unknown,
 ): LyricProviderSource => {
-    if (versionedValue !== null && versionedValue !== undefined) {
-        return isLyricProviderSource(versionedValue) ? versionedValue : DEFAULT_PREFERRED_LYRIC_SOURCE;
-    }
-    if (legacyValue === 'amll' || legacyValue === 'qq' || legacyValue === 'kugou') return legacyValue;
+    // 无论旧值为何，一律归一到网易云。
+    void versionedValue; void legacyValue;
     return DEFAULT_PREFERRED_LYRIC_SOURCE;
 };

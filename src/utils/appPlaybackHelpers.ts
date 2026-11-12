@@ -75,19 +75,7 @@ export const toSafeRemoteUrl = (url: string | null | undefined): string | null |
         return normalizedUrl.replace('http:', 'https:');
     }
 
-    try {
-        const parsedUrl = new URL(normalizedUrl);
-        if (
-            parsedUrl.protocol === 'http:' &&
-            parsedUrl.hostname.startsWith('fs.') &&
-            parsedUrl.hostname.endsWith('.kugou.com')
-        ) {
-            return normalizedUrl.replace(/^http:/, 'https:');
-        }
-    } catch {
-        return normalizedUrl;
-    }
-
+    // 小轩音乐只提供网易云：仅对网易云 CDN 做 http -> https 安全升级。
     return normalizedUrl;
 };
 

@@ -19,17 +19,10 @@ type OnlineProviderSwitcherProps = {
 const ProviderAvatar = ({ provider, className }: { provider: ProviderAccountSummary; className: string }) => (
     provider.user?.avatarUrl
         ? <img src={provider.user.avatarUrl.replace(/^http:/, 'https:')} alt={provider.user.nickname} className={`${className} object-cover`} />
-        : provider.providerId === 'netease'
-            // 未登录时使用网易云官方品牌图标作为头像占位。
-            ? <img src={neteaseLogo} alt={provider.displayName} aria-label={provider.displayName} className={`${className} object-cover`} />
-            : (
-                <span
-                    aria-label={provider.displayName}
-                    className={`${className} flex items-center justify-center font-black text-white bg-blue-600`}
-                >
-                    {provider.providerId === 'kugou' ? 'K' : <UserRound size={20} />}
-                </span>
-            )
+        : (
+            // 只有网易云音源：未登录时统一使用网易云官方品牌图标作为头像占位。
+            <img src={neteaseLogo} alt={provider.displayName} aria-label={provider.displayName} className={`${className} object-cover`} />
+          )
 );
 
 const OnlineProviderSwitcher: React.FC<OnlineProviderSwitcherProps> = ({

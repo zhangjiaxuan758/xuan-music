@@ -35,19 +35,9 @@ declare global {
     mimeType?: string | null;
   }
 
-  type ElectronKugouOperation = import('./services/onlineMusic/kugouTransport').KugouOperation;
-
   interface ElectronAudioCacheStats {
     size: number;
     count: number;
-  }
-
-  interface ElectronLyricProxyResponse {
-    ok: boolean;
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    bodyText: string;
   }
 
   interface ElectronNeteaseApiStatus {
@@ -55,11 +45,6 @@ declare global {
     port: number | null;
     error: string | null;
     updatedAt: number;
-  }
-
-  interface ElectronKugouApiStatus {
-    available: boolean;
-    error: string | null;
   }
 
   interface ElectronTaskbarControlState {
@@ -498,22 +483,9 @@ declare global {
       getCoverCacheUsage: () => Promise<number>;
       clearCoverCache: () => Promise<boolean>;
       generateTheme: (lyricsText: string, options?: { isPureMusic?: boolean; songTitle?: string }) => Promise<any>;
-      fetchLyricProxy: (
-        url: string,
-        init?: {
-          method?: string;
-          headers?: Record<string, string>;
-          body?: string;
-        },
-      ) => Promise<ElectronLyricProxyResponse>;
       getNeteasePort: () => Promise<number>;
       getNeteaseApiStatus: () => Promise<ElectronNeteaseApiStatus>;
       onNeteaseApiStatusChanged: (callback: (status: ElectronNeteaseApiStatus) => void) => () => void;
-      getKugouApiStatus: () => Promise<ElectronKugouApiStatus>;
-      kugouRequest: (
-        operation: ElectronKugouOperation,
-        params?: Record<string, string | number | boolean | undefined>,
-      ) => Promise<unknown>;
       minimizeWindow: () => Promise<boolean>;
       toggleMaximizeWindow: () => Promise<boolean>;
       toggleFullscreenWindow: () => Promise<boolean>;

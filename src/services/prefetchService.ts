@@ -212,9 +212,9 @@ const prefetchSong = async (
                         const bestMatch = await autoMatchBestLyric(song.name, artistName, metadata.durationMs, {
                             album: metadata.album?.name,
                             preferredSource: settings.preferredAlternativeLyricSource,
-                            ...(sourceRef.providerId === 'netease' || sourceRef.providerId === 'kugou'
+                            ...(sourceRef.providerId === 'netease'
                                 ? { providerCandidate: {
-                                    providerId: sourceRef.providerId as 'netease' | 'kugou',
+                                    providerId: 'netease' as const,
                                     song,
                                     lyricsResult: {
                                         lyrics: parsedLyrics,

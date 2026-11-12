@@ -5,7 +5,6 @@ import { useShallow } from 'zustand/react/shallow';
 import type { LocalLyricsPriority, QueueAddBehavior, Theme } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
-import { getSupportedFrameRates, readFrameRatePref, writeFrameRatePref, type FrameRatePref } from '../../../services/frameRate';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
 import { XuanAudioEffectSettings } from './XuanAudioEffectSettings';
@@ -186,7 +185,6 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         <div className="space-y-5">
             {/* 音效设置入口：开关 + 7 种固定预设，设置 → 播放 里可直接打开 */}
             <XuanAudioEffectSettings isDaylight={isDaylight} />
-            <FrameRateSection settingsCardClass={settingsCardClass} isDaylight={isDaylight} />
             <section>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                     <PlayCircle size={14} />                    {t('options.queueSettings')}
@@ -388,54 +386,3 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
 export default PlaybackSettingsSubview;
 
-/** 帧率设置（仅 Android 客户端显示）：默认设备最高，可切 30/60/…/设备支持的最高档 */
-const FrameRateSection: React.FC<{ settingsCardClass: string; isDaylight: boolean }> = ({ settingsCardClass, isDaylight }) => {
-    const [rates, setRates] = useState<number[]>([]);
-    const [pref, setPref] = useState<FrameRatePref>(() => readFrameRatePref());
-
-    useEffect(() => {
-        let alive = true;
-        void getSupportedFrameRates().then(r => { if (alive) setRates(r); }).catch(() => { });
-        return () => { alive = false; };
-    }, []);
-
-    if (!rates.length) return null; // 网页端 / 桌面端不显示
-
-    const options: Array<{ value: FrameRatePref; label: string }> = [
-        { value: 0, label: `自动（设备最高 ${rates[rates.length - 1]} 帧）` },
-        ...rates.map(r => ({ value: r as FrameRatePref, label: `${r} 帧` })),
-    ];
-
-    const card = isDaylight ? 'bg-black/[0.035] border-black/10' : 'bg-white/[0.04] border-white/10';
-    return (
-        <section>
-            <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                <Monitor size={14} /> 帧率
-            </h3>
-            <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
-                <div className="space-y-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>屏幕刷新率</div>
-                    <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                        默认使用手机最高帧率；只显示设备支持的档位（最低 30 帧）。
-                    </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {options.map(o => {
-                        const selected = pref === o.value;
-                        return (
-                            <button
-                                key={o.value}
-                                type="button"
-                                onClick={() => { setPref(o.value); writeFrameRatePref(o.value); }}
-                                className={`rounded-full px-3 py-1.5 text-xs transition-colors border ${card} ${selected ? 'font-bold' : 'opacity-70'}`}
-                                style={selected ? { borderColor: 'var(--accent-color, currentColor)', color: 'var(--accent-color, currentColor)' } : undefined}
-                            >
-                                {o.label}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-        </section>
-    );
-};

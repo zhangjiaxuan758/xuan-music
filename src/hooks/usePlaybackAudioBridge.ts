@@ -322,6 +322,9 @@ export function usePlaybackAudioBridge({
         }
 
         if (audioSrc && previousAudioSrcRef.current && previousAudioSrcRef.current !== audioSrc) {
+            // 切歌前瞬时 duck：pause + load 会把上一首流硬截断（听感是「咔」），
+            // 10ms 压低 + 180ms 回升正好盖住切换瞬间并给新流一个平滑淡入。
+            try { window.dispatchEvent(new CustomEvent('xuan:audio-pre-seek')); } catch { /* noop */ }
             audioElement.pause();
             audioElement.load();
         }

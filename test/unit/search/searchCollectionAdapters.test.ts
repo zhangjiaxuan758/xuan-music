@@ -72,28 +72,19 @@ describe('search collection adapters', () => {
         }));
     });
 
-    it('uses canonical KuGou catalog references instead of display ids', async () => {
-        const track: UnifiedSong = {
-            ...baseTrack(),
-            id: 'HASH',
-            artists: [{
-                id: 'display-artist',
-                name: 'Artist',
-                catalogRef: { providerId: 'kugou', kind: 'artist', id: 6539 },
-            }],
-            album: {
-                id: 'display-album',
-                name: 'Album',
-                catalogRef: { providerId: 'kugou', kind: 'album', id: 10729818 },
-            },
-            sourceRef: { kind: 'online', providerId: 'kugou', mediaId: 'HASH' },
-        };
-
-        await expect(createSearchArtistCollection(track, 'Artist', 'display-artist')).resolves.toMatchObject({
-            providerId: 'kugou', id: 6539, type: 'artist',
-        });
-        await expect(createSearchAlbumCollection(track, 'Album', 'display-album')).resolves.toMatchObject({
-            providerId: 'kugou', id: 10729818, type: 'album',
-        });
+    it('resolves NetEase artist and album descriptors from display ids', async () => {
+        const track = baseTrack();
+        await expect(createSearchArtistCollection(track, 'Artist', 20)).resolves.toEqual(expect.objectContaining({
+            source: 'online',
+            providerId: 'netease',
+            id: 20,
+            type: 'artist',
+        }));
+        await expect(createSearchAlbumCollection(track, 'Album', 30)).resolves.toEqual(expect.objectContaining({
+            source: 'online',
+            providerId: 'netease',
+            id: 30,
+            type: 'album',
+        }));
     });
 });

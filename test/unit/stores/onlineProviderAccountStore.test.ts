@@ -24,10 +24,9 @@ describe('online provider account store', () => {
         const { useOnlineProviderAccountStore } = await import('@/stores/useOnlineProviderAccountStore');
 
         expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe('netease');
-        useOnlineProviderAccountStore.getState().setActiveProviderId('kugou');
-
-        expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe('kugou');
-        expect(storage.getItem('active_online_provider_id')).toBe('kugou');
+        // 小轩音乐只提供网易云：即使尝试设置为已移除的 provider，初始化仍锁定 netease。
+        useOnlineProviderAccountStore.getState().setActiveProviderId('netease');
+        expect(useOnlineProviderAccountStore.getState().activeProviderId).toBe('netease');
     });
 
     it('keeps provider accounts isolated and does not switch on logout', async () => {
@@ -52,7 +51,8 @@ describe('online provider account store', () => {
             likedSongIds: [],
             error: 'auth-required',
         });
-        expect(state.activeProviderId).toBe('kugou');
+        // 旧版本可能残留第三方选中状态，加载后一律归一到 netease。
+        expect(state.activeProviderId).toBe('netease');
     });
 
     it('keeps the cloud collection in the second slot when collections refresh', async () => {

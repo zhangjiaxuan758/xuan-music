@@ -1,6 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { type ConfigEnv, type UserConfig, type ViteDevServer } from 'vite';
+import { type ConfigEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'child_process';
@@ -8,133 +8,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const LYRIC_PROXY_CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
-  'Access-Control-Allow-Headers': [
-    'X-CSRF-Token',
-    'X-Requested-With',
-    'Accept',
-    'Accept-Version',
-    'Content-Length',
-    'Content-MD5',
-    'Content-Type',
-    'Date',
-    'X-Api-Version',
-    'KG-Rec',
-    'KG-RC',
-    'KG-CLIENTTIMEMS',
-    'mid',
-    'x-router',
-  ].join(', '),
-};
-
-const LYRIC_PROXY_IGNORED_FORWARD_HEADERS = ['host', 'connection', 'content-length', 'origin', 'referer'];
-
-function isAllowedLyricProxyHost(hostname: string): boolean {
-  return hostname === 'qq.com' || hostname.endsWith('.qq.com') ||
-    hostname === 'y.gtimg.cn' ||
-    hostname === 'kugou.com' || hostname.endsWith('.kugou.com') ||
-    hostname === 'kgimg.com' || hostname.endsWith('.kgimg.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net';
-}
-
-function isAmllDbHost(hostname: string): boolean {
-  return hostname === 'amll-ttml-db.stevexmh.net';
-}
-
-function setLyricProxyCorsHeaders(res: import('http').ServerResponse): void {
-  Object.entries(LYRIC_PROXY_CORS_HEADERS).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
-}
-
-function sendLyricProxyJson(res: import('http').ServerResponse, statusCode: number, body: unknown): void {
-  setLyricProxyCorsHeaders(res);
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(body));
-}
-
-function readDevRequestBody(req: import('http').IncomingMessage): Promise<Uint8Array<ArrayBuffer>> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    req.on('end', () => resolve(new Uint8Array(Buffer.concat(chunks))));
-    req.on('error', reject);
-  });
-}
-
-function devLyricProxyPlugin() {
-  return {
-    name: 'xuan-dev-lyric-proxy',
-    apply: 'serve' as const,
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use(async (req, res, next) => {
-        const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-        if (requestUrl.pathname !== '/api/lyric-proxy') {
-          next();
-          return;
-        }
-
-        if (req.method === 'OPTIONS') {
-          setLyricProxyCorsHeaders(res);
-          res.statusCode = 200;
-          res.end();
-          return;
-        }
-
-        const targetUrlStr = requestUrl.searchParams.get('url');
-        if (!targetUrlStr) {
-          sendLyricProxyJson(res, 400, { error: 'Missing url parameter' });
-          return;
-        }
-
-        try {
-          const targetUrl = new URL(targetUrlStr);
-          if (!isAllowedLyricProxyHost(targetUrl.hostname)) {
-            sendLyricProxyJson(res, 403, { error: 'Forbidden: Domain not allowed' });
-            return;
-          }
-
-          const headers = new Headers();
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (!LYRIC_PROXY_IGNORED_FORWARD_HEADERS.includes(key.toLowerCase()) && value) {
-              headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-            }
-          }
-
-          const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
-          const response = await fetch(targetUrl.toString(), {
-            method: req.method,
-            headers,
-            body: hasBody ? await readDevRequestBody(req) : undefined,
-          });
-
-          setLyricProxyCorsHeaders(res);
-          if (isAmllDbHost(targetUrl.hostname) && response.status === 404) {
-            res.statusCode = 204;
-            res.end();
-            return;
-          }
-
-          res.statusCode = response.status;
-          res.statusMessage = response.statusText;
-          const contentType = response.headers.get('content-type');
-          if (contentType) {
-            res.setHeader('Content-Type', contentType);
-          }
-
-          const buffer = Buffer.from(await response.arrayBuffer());
-          res.end(buffer);
-        } catch (error) {
-          console.error('Vite lyric proxy request failed:', error);
-          sendLyricProxyJson(res, 500, { error: 'Proxy request failed', details: String(error) });
-        }
-      });
-    },
-  };
-}
+// 小轩音乐只提供网易云音源：第三方歌词代理中间件已移除。
 
 export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig> {
   const isCapacitorBuild = process.env.XUAN_BUILD_TARGET === 'capacitor';
@@ -233,7 +107,6 @@ export default async function viteConfig(_config: ConfigEnv): Promise<UserConfig
       host: '0.0.0.0',
     },
     plugins: [
-      devLyricProxyPlugin(),
       react(),
       ...(isCapacitorBuild ? [] : [VitePWA({
         registerType: 'autoUpdate',

@@ -4,12 +4,18 @@ import { resolveStoredAudioQuality } from '@/stores/useSettingsUiStore';
 // test/unit/settings/audioQualityMigration.test.ts
 
 describe('audio quality migration', () => {
-    it('maps the old NetEase exhigh preference to provider-neutral high', () => {
-        expect(resolveStoredAudioQuality('exhigh')).toBe('high');
-        expect(resolveStoredAudioQuality('high')).toBe('high');
+    it('normalizes the legacy neutral high preference to the official exhigh tier', () => {
+        // 现行语义：登录态默认官方最高音质，'high' 归一为官方 'exhigh' 档。
+        expect(resolveStoredAudioQuality('high')).toBe('exhigh');
+        expect(resolveStoredAudioQuality('exhigh')).toBe('exhigh');
     });
 
-    it.each(['standard', 'lossless', 'hires'] as const)('preserves %s', quality => {
+    it('falls back to auto when nothing is stored', () => {
+        expect(resolveStoredAudioQuality(null)).toBe('auto');
+        expect(resolveStoredAudioQuality('bogus-tier')).toBe('auto');
+    });
+
+    it.each(['standard', 'lossless', 'hires', 'jymaster'] as const)('preserves %s', quality => {
         expect(resolveStoredAudioQuality(quality)).toBe(quality);
     });
 });

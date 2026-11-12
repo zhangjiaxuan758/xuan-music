@@ -8,7 +8,6 @@ import {
     writeCoverAsset,
     type BinaryAssetWriteResult,
 } from './binaryAssetStore';
-import { resolveXuanApiUrl } from './webApi';
 
 interface StoredCoverDescriptor extends BinaryAssetWriteResult { }
 
@@ -21,20 +20,8 @@ const isStoredCoverDescriptor = (value: unknown): value is StoredCoverDescriptor
         && typeof candidate.updatedAt === 'number';
 };
 
-const buildCoverRequestUrl = (coverUrl: string): string => {
-    if (typeof window !== 'undefined' && window.electron) return coverUrl;
-    try {
-        const hostname = new URL(coverUrl).hostname;
-        if (hostname === 'y.gtimg.cn'
-            || hostname === 'kugou.com' || hostname.endsWith('.kugou.com')
-            || hostname === 'kgimg.com' || hostname.endsWith('.kgimg.com')) {
-            return resolveXuanApiUrl(`lyric-proxy?url=${encodeURIComponent(coverUrl)}`);
-        }
-    } catch {
-        return coverUrl;
-    }
-    return coverUrl;
-};
+// 小轩音乐只提供网易云音源：封面直接取网易云 CDN，不再为第三方封面走代理。
+const buildCoverRequestUrl = (coverUrl: string): string => coverUrl;
 
 const fetchCoverBlob = async (coverUrl: string): Promise<Blob> => {
     const response = await fetch(buildCoverRequestUrl(coverUrl), { mode: 'cors' });

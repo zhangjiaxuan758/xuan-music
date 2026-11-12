@@ -1356,8 +1356,8 @@ export function useLibraryPlaybackController({
                 album: albumName,
                 preferredSource: settings.preferredAlternativeLyricSource,
                 providerCandidate: sourceRef.kind === 'online'
-                    && (sourceRef.providerId === 'netease' || sourceRef.providerId === 'kugou')
-                    ? { providerId: sourceRef.providerId as 'netease' | 'kugou', song: currentSong, lyricsResult: ownLyricsResult }
+                    && sourceRef.providerId === 'netease'
+                    ? { providerId: 'netease' as const, song: currentSong, lyricsResult: ownLyricsResult }
                     : undefined,
             });
 

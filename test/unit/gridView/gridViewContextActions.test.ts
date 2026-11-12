@@ -10,7 +10,9 @@ const buildTrack = (id: number, name: string, unavailable = false): SongResult =
     artists: [],
     album: { id, name: 'Album' },
     durationMs: 180000,
-    privilege: unavailable ? { st: -200 } : { st: 0 },
+    privilege: { st: unavailable ? -200 : 0 },
+    // 仅 resourceState === false 才认定官方下架。
+    ...(unavailable ? { resourceState: false } : {}),
 });
 
 describe('resolveGridViewContextTracks', () => {

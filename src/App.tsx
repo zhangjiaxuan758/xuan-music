@@ -51,7 +51,6 @@ import { getSongAlbumLabel, getSongArtistLabel, getSongCoverUrl } from './servic
 import { isNavidromeEnabled } from './services/navidromeService';
 import { useAppNavigation } from './hooks/useAppNavigation';
 import { useNeteaseLibrary } from './hooks/useNeteaseLibrary';
-import { useKugouLibrary } from './hooks/useKugouLibrary';
 import { useOnlineProviderPlatform } from './hooks/useOnlineProviderPlatform';
 import { useAppPreferences } from './hooks/useAppPreferences';
 import { useElectronPlaybackBridge } from './hooks/useElectronPlaybackBridge';
@@ -862,20 +861,15 @@ export default function App() {
         t,
     });
 
-    const {
-        refresh: refreshKugouLibrary,
-        logout: logoutKugouLibrary,
-        checkLoginStatus: checkKugouLoginStatus,
-    } = useKugouLibrary();
+    // 小轩音乐只提供网易云音源：不再挂载酷狗曲库 hook。
+    // 注册表只登记网易云，若继续挂载已移除的第三方曲库 hook 会抛「provider 未注册」异常。
     const [isProviderSyncing, setIsProviderSyncing] = useState(false);
     const onlineProviderRefreshers = useMemo(() => ({
         netease: refreshUserData,
-        kugou: refreshKugouLibrary,
-    }), [refreshKugouLibrary, refreshUserData]);
+    }), [refreshUserData]);
     const onlineProviderLogouts = useMemo(() => ({
         netease: handleLogout,
-        kugou: logoutKugouLibrary,
-    }), [handleLogout, logoutKugouLibrary]);
+    }), [handleLogout]);
     const [providerSwitchPending, setProviderSwitchPending] = useState<{
         nextProviderId: OnlineProviderId;
         resolve: (confirmed: boolean) => void;
@@ -988,16 +982,8 @@ export default function App() {
                 providerId,
                 name: error instanceof Error ? error.name : 'Error',
             });
-            const account = useOnlineProviderAccountStore.getState().accounts[providerId];
-            if (providerId !== 'kugou' || !account?.user) return;
-
-            const user = await checkKugouLoginStatus();
-            const refreshedAccount = useOnlineProviderAccountStore.getState().accounts.kugou;
-            if (!user && refreshedAccount?.error === 'auth-required') {
-                setStatusMsg({ type: 'error', text: t('status.loginExpired') });
-            }
         });
-    }, [checkKugouLoginStatus, currentView, hasCollection, onlineProviderPlatform.activeProvider?.freshness, onlineProviderPlatform.activeProviderId, refreshActiveProviderPlaylists, setStatusMsg, t]);
+    }, [currentView, hasCollection, onlineProviderPlatform.activeProvider?.freshness, onlineProviderPlatform.activeProviderId, refreshActiveProviderPlaylists]);
 
     const {
         stageStatus,

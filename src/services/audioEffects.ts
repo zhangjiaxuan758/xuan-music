@@ -211,6 +211,9 @@ const applySettings = (settings?: XuanAudioEffectSettings): void => {
     const s = settings || readXuanAudioEffects();
     const presetId: XuanEffectPreset = s.enabled && s.preset !== 'off' ? s.preset : 'off';
     appliedPreset = presetId;
+    // 状态切换前先瞬时 duck：xe_set_state 会瞬时重置滤波器状态，
+    // 直接切换会让输出产生一个阶跃（听感是「咔」）。压低 8ms 再 120ms 回升即可遮住。
+    duckAudioMomentary(0.008, 0.12);
     forwardState(s.enabled && s.preset !== 'off', XUAN_CPP_PRESET_INDEX[presetId] ?? 0);
     if (activeContext && activeContext.state === 'suspended') {
         void activeContext.resume().catch(() => { });
@@ -481,19 +484,28 @@ export const attachXuanAudioEffects = (ctx: AudioContext, downstream: AudioNode)
 
 export const registerSeekDuckNode = (node: GainNode | null): void => { seekDuckNode = node; };
 
+/**
+ * 瞬时 duck：先把增益快速压到接近 0，再自动回升。
+ * 用于遮住一切「音频链状态突变」产生的咔哒声：
+ *   - seek（解码器残留缓冲）
+ *   - 切歌（audio 元素 pause + load 的硬切换）
+ *   - 音效开关 / 预设切换（C++ 引擎 xe_set_state 的滤波器状态 step）
+ */
+export const duckAudioMomentary = (fadeOutSec = 0.010, backSec = 0.18): void => {
+    if (!seekDuckNode) return;
+    try {
+        const ctx = seekDuckNode.context;
+        const now = ctx.currentTime;
+        const g = seekDuckNode.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(0.0001, now + fadeOutSec);
+        g.linearRampToValueAtTime(1, now + fadeOutSec + backSec);
+    } catch { /* noop */ }
+};
+
 if (typeof window !== 'undefined') {
-    window.addEventListener('xuan:audio-pre-seek', () => {
-        if (!seekDuckNode) return;
-        try {
-            const ctx = seekDuckNode.context;
-            const now = ctx.currentTime;
-            const g = seekDuckNode.gain;
-            g.cancelScheduledValues(now);
-            g.setValueAtTime(g.value, now);
-            g.linearRampToValueAtTime(0.0001, now + 0.010);
-            g.linearRampToValueAtTime(1, now + 0.18);
-        } catch { /* noop */ }
-    });
+    window.addEventListener('xuan:audio-pre-seek', () => duckAudioMomentary());
 }
 
 /** 当前生效的预设（供诊断 / UI 使用）。 */

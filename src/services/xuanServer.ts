@@ -62,6 +62,8 @@ export interface UpdateInfo {
   downloadUrl: string; force: boolean; hasApk: boolean;
   /** 服务端对发布包做完整签名/包名校验后登记的整包 SHA-256 与字节数，端上下载后逐字节复核 */
   sha256?: string; size?: number;
+  /** 服务端对新包身份的发布签名（每次管理端上传都会重算），下载响应头须与之一致 */
+  releaseSign?: string;
 }
 
 // ---------------------------------------------------------------- 基础 HTTP
@@ -298,7 +300,7 @@ export async function checkUpdate(notify = true, platform: 'android' | 'windows'
     versionCode: r.versionCode, versionName: r.versionName,
     changelog: r.changelog, downloadUrl: r.downloadUrl,
     force: r.force, hasApk: r.hasApk,
-    sha256: r.sha256, size: r.size,
+    sha256: r.sha256, size: r.size, releaseSign: (r as any).releaseSign,
   };
   if (notify && updateListener) updateListener(info);
   return info;

@@ -65,18 +65,35 @@ describe('dispatchSearchTrackAction', () => {
         expect(onNavidrome).toHaveBeenCalledWith(navidromeData);
     });
 
-    it('blocks unavailable songs for both play and queue callers', () => {
+    it('blocks songs officially marked unavailable for both play and queue callers', () => {
         const actions = {
             localSongs: [],
             onLocal: vi.fn(),
             onNavidrome: vi.fn(),
             onOnline: vi.fn(),
         };
+        // 仅 resourceState === false 才认定官方下架；privilege.st < 0 只是未登录试听限制，
+        // 由取链环节处理，不应在分发层误杀整页搜索结果。
         const didDispatch = dispatchSearchTrackAction(track({
-            privilege: { st: -200 },
+            resourceState: false,
         }), actions);
 
         expect(didDispatch).toBe(false);
         expect(actions.onOnline).not.toHaveBeenCalled();
+    });
+
+    it('still dispatches songs with trial-restricted privilege for online playback', () => {
+        const onOnline = vi.fn();
+        const didDispatch = dispatchSearchTrackAction(track({
+            privilege: { st: -200 },
+        }), {
+            localSongs: [],
+            onLocal: vi.fn(),
+            onNavidrome: vi.fn(),
+            onOnline,
+        });
+
+        expect(didDispatch).toBe(true);
+        expect(onOnline).toHaveBeenCalledTimes(1);
     });
 });

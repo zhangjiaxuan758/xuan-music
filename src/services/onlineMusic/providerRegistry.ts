@@ -3,7 +3,6 @@ import type { OnlineMusicProvider, OnlineProviderId, ProviderCapabilities } from
 import type { SongResult } from '../../types';
 import { getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
 import { neteaseProvider } from './neteaseProvider';
-import { kugouProvider } from './kugouProvider';
 
 // src/services/onlineMusic/providerRegistry.ts
 
@@ -54,5 +53,7 @@ export const requireOnlineMusicProviderForSong = (song: SongResult): OnlineMusic
     return requireOnlineMusicProvider(sourceRef.providerId);
 };
 
+// 小轩音乐只提供网易云音源：注册表仅登记 neteaseProvider。
+// 酷狗/QQ 等第三方 provider 一律不注册，历史缓存里的其它 providerId 歌曲
+// 在解析时会走「未注册」容错分支，不会导致崩溃，但绝不会再发起第三方请求。
 registerOnlineMusicProvider(neteaseProvider);
-registerOnlineMusicProvider(kugouProvider);

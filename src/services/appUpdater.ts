@@ -77,10 +77,45 @@ function toast(msg: string, ms = 2200) {
 }
 
 let dialogOpen = false;
+// 强制更新期间拦截安卓返回键 / Esc / 浏览器后退：不允许绕过更新弹窗。
+let forceGuard: (() => void) | null = null;
+
+function releaseForceGuard() {
+  if (!forceGuard) return;
+  forceGuard();
+  forceGuard = null;
+}
+
+function installForceGuard() {
+  releaseForceGuard();
+  // 压入一条历史记录，用户按返回键只会触发 popstate，被我们吞掉后立刻补回，
+  // 从而无法退出 App 或关闭强制更新弹窗。
+  let pushed = false;
+  try { history.pushState({ xuanForceUpdate: true }, ''); pushed = true; } catch { /* noop */ }
+  const onPop = () => {
+    try { history.pushState({ xuanForceUpdate: true }, ''); } catch { /* noop */ }
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'Back') {
+      e.preventDefault(); e.stopPropagation();
+    }
+  };
+  window.addEventListener('popstate', onPop, true);
+  window.addEventListener('keydown', onKey, true);
+  forceGuard = () => {
+    window.removeEventListener('popstate', onPop, true);
+    window.removeEventListener('keydown', onKey, true);
+    // 保留压入的历史，避免后退时把应用直接关掉；下次启动会重新走检查流程。
+    void pushed;
+  };
+}
 
 function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
   if (dialogOpen) return;
   dialogOpen = true;
+  // force 由服务端更新段下发（管理端两个「强制更新」开关共同控制）。
+  // 强制时：只有一个「立即更新」按钮、无取消、点遮罩/Esc/返回键都不关闭，必须更新。
+  const forced = !!info.force;
   const overlay = el('div', {
     position: 'fixed', inset: '0', zIndex: '99999', display: 'flex',
     alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.62)',
@@ -91,13 +126,21 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
     borderRadius: '18px', padding: '28px', boxShadow: '0 24px 70px rgba(0,0,0,.55)',
     border: '1px solid rgba(255,255,255,.08)',
   });
-  const title = el('div', { fontSize: '19px', fontWeight: '700', marginBottom: '8px' }, '已有新版本');
+  const title = el('div', { fontSize: '19px', fontWeight: '700', marginBottom: '8px' },
+    forced ? '必须更新后才能继续使用' : '已有新版本');
   const ver = el('div', { fontSize: '13px', color: '#a1a1a6', marginBottom: '14px' },
     `新版本 ${info.versionName || ''}（${info.versionCode}）`);
   const desc = el('div', {
     fontSize: '13px', color: '#d0d0d4', lineHeight: '1.7', marginBottom: '24px',
     maxHeight: '150px', overflowY: 'auto', whiteSpace: 'pre-wrap',
   }, (info.changelog || '').trim() || DEFAULT_CHANGELOG);
+  if (forced) {
+    const hint = el('div', {
+      fontSize: '12px', color: '#f0b45a', lineHeight: '1.6', marginBottom: '16px',
+      marginTop: '-10px',
+    }, '本次为强制更新，请更新到最新版本后继续使用。');
+    card.append(hint);
+  }
 
   const row = el('div', { display: 'flex', gap: '12px', justifyContent: 'flex-end' });
   const btn = (label: string, primary: boolean, cb: () => void) => {
@@ -113,15 +156,23 @@ function showUpdateDialog(info: UpdateInfo, onConfirm: () => void) {
     return b;
   };
 
-  const close = () => { overlay.remove(); dialogOpen = false; };
-  // 取消：仅关闭弹窗，不记录任何状态 → 下次启动仍会重新弹
-  const cancel = btn('取消', false, () => { close(); });
-  // 确定：关闭弹窗并立即开始下载/更新
-  const confirm = btn('确定', true, () => { close(); onConfirm(); });
-  row.append(cancel, confirm);
+  const close = () => { overlay.remove(); dialogOpen = false; releaseForceGuard(); };
+  if (forced) {
+    // 只有一个按钮，没有「取消」；关闭只发生在用户点击「立即更新」并开始下载后。
+    const only = btn('立即更新', true, () => { close(); onConfirm(); });
+    only.style.flex = '1';
+    row.append(only);
+    installForceGuard();
+  } else {
+    // 取消：仅关闭弹窗，不记录任何状态 → 下次启动仍会重新弹
+    const cancel = btn('取消', false, () => { close(); });
+    // 确定：关闭弹窗并立即开始下载/更新
+    const confirm = btn('确定', true, () => { close(); onConfirm(); });
+    row.append(cancel, confirm);
+  }
   card.append(title, ver, desc, row);
   overlay.append(card);
-  // 强模态：点击遮罩/卡片外的任何位置都不关闭，只有「取消」「确定」可操作
+  // 强模态：点击遮罩/卡片外的任何位置都不关闭，只有按钮可操作
   overlay.addEventListener('click', e => { e.stopPropagation(); });
   card.addEventListener('click', e => { e.stopPropagation(); });
   document.body.append(overlay);
@@ -162,17 +213,22 @@ function showProgressDialog(titleText = '正在下载更新'): ProgressUI {
         marginTop: '20px', width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
         background: ok ? '#f2f2f3' : 'rgba(255,255,255,.10)',
         color: ok ? '#1c1c1e' : '#e8e8ea', fontWeight: '600', fontSize: '14px', cursor: 'pointer',
-      }, ok ? (okLabel || '安装') : '关闭') as HTMLButtonElement;
-      b.onclick = () => { overlay.remove(); if (ok) install(); };
+      }, ok ? (okLabel || '安装') : (errMsg ? '重试' : '关闭')) as HTMLButtonElement;
+      // 失败时也要执行回调：强制更新据此重新弹出「只有更新按钮」的强制窗，杜绝绕过。
+      b.onclick = () => { overlay.remove(); install(); };
       card.append(b);
     },
   };
 }
 
+/** 最近一次下载响应头里的发布签名（服务端 X-Release-Sign），供 verifyDownload 与 check 下发值比对。 */
+let lastDownloadReleaseSign = '';
+
 /** 流式下载（有进度、内存友好）；expectedSize 作为 Content-Length 缺失时的分母兜底 */
 async function fetchApkBytes(url: string, ui: ProgressUI, expectedSize?: number): Promise<Uint8Array> {
   const res = await fetch(url, { credentials: 'omit', cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  lastDownloadReleaseSign = res.headers.get('X-Release-Sign') || '';
   // 服务端 X-Accel 会带 Content-Length；缺失时用 checkUpdate 下发的登记大小，进度不会卡在半途
   const total = Number(res.headers.get('content-length') || 0) || expectedSize || 0;
   const reader = res.body?.getReader();
@@ -201,6 +257,9 @@ async function nativeFallbackBytes(url: string, ui: ProgressUI): Promise<Uint8Ar
     connectTimeout: 30000, readTimeout: 180000,
   });
   if (r.status < 200 || r.status >= 300) throw new Error(`HTTP ${r.status}（原生通道）`);
+  const rh: Record<string, string> = (r as any).headers || {};
+  const hit = Object.keys(rh).find(k => k.toLowerCase() === 'x-release-sign');
+  lastDownloadReleaseSign = hit ? String(rh[hit] || '') : '';
   const b64 = typeof r.data === 'string' ? r.data : '';
   if (!b64) throw new Error('原生通道返回为空');
   const bin = atob(b64);
@@ -241,17 +300,34 @@ async function verifyDownload(bytes: Uint8Array, info: UpdateInfo, kind: 'apk' |
     // 服务端未下发哈希时（旧服务端）仍需最基本的完整性保证，并明确告警，绝不静默放行
     console.warn('[Updater] 服务端未下发 sha256，降级为魔数+体积校验；请升级服务端');
   }
+  // 发布签名闭环：check 下发的签名必须与下载响应头一致，且两者都非空。
+  // 这样即便有人替换了下载链路上的包，哈希与签名也无法同时对齐（防恶意换包）。
+  if (info.releaseSign) {
+    if (!lastDownloadReleaseSign
+        || lastDownloadReleaseSign.toLowerCase() !== info.releaseSign.toLowerCase()) {
+      throw new Error('安装包发布签名校验失败（可能被替换为非官方包），已阻止安装');
+    }
+  }
+}
+
+/** 下载/校验失败后重新弹出更新窗重试：
+ *  强制更新 → 仍是「只有更新按钮」的强制窗，杜绝绕过；
+ *  普通更新 → 恢复「取消 + 确定」的普通窗，用户可选择重试或稍后再说。 */
+function retryUpdate(info: UpdateInfo, action: (i: UpdateInfo) => void) {
+  window.setTimeout(() => showUpdateDialog(info, () => action(info)), 400);
 }
 
 async function downloadApk(info: UpdateInfo) {
   const ui = showProgressDialog();
   try {
     const url = await downloadUrl(info.downloadUrl || '/download/xuan-music.apk');
+    lastDownloadReleaseSign = '';
     let bytes: Uint8Array;
     try {
       bytes = await fetchApkBytes(url, ui, info.size);
     } catch (e1) {
       if (!Capacitor.isNativePlatform()) throw e1;
+      lastDownloadReleaseSign = '';
       bytes = await nativeFallbackBytes(url, ui);
     }
     ui.set(100, '正在校验安装包完整性…');
@@ -262,7 +338,8 @@ async function downloadApk(info: UpdateInfo) {
       '签名与完整性校验通过，点击下方按钮安装，安装后即为新版本');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e || '未知错误');
-    ui.done(false, () => {}, msg);
+    ui.done(false, () => retryUpdate(info, downloadApk), msg,
+      undefined, undefined);
   }
 }
 
@@ -271,6 +348,7 @@ async function downloadDesktopExe(info: UpdateInfo) {
   const ui = showProgressDialog('正在下载桌面版更新');
   try {
     const url = await downloadUrl(info.downloadUrl || '/download/xuan-music-desktop.exe');
+    lastDownloadReleaseSign = '';
     const bytes = await fetchApkBytes(url, ui, info.size);
     ui.set(100, '正在校验安装包完整性…');
     await verifyDownload(bytes, info, 'exe');
@@ -288,7 +366,7 @@ async function downloadDesktopExe(info: UpdateInfo) {
       '完整性校验通过，安装包已保存到下载目录，请运行 Setup 覆盖安装');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e || '未知错误');
-    ui.done(false, () => {}, msg);
+    ui.done(false, () => retryUpdate(info, downloadDesktopExe), msg);
   }
 }
 

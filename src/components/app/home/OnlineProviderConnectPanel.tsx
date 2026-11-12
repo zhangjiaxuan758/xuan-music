@@ -16,9 +16,9 @@ type OnlineProviderConnectPanelProps = {
 
 const providerBadge = (provider: ProviderAccountSummary): { label: string; className: string; logo?: string } => {
     // 网易云使用官方品牌图标，替换原先红底白「云」字占位徽章。
+    // 只有网易云音源：一律使用官方品牌图标。
     if (provider.providerId === 'netease') return { label: '云', className: 'bg-red-600', logo: neteaseLogo };
-    if (provider.providerId === 'kugou') return { label: 'K', className: 'bg-blue-600' };
-    return { label: provider.shortName.slice(0, 1), className: 'bg-zinc-600' };
+    return { label: '云', className: 'bg-red-600', logo: neteaseLogo };
 };
 
 const OnlineProviderConnectPanel = ({
