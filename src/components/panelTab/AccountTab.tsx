@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogOut, SlidersHorizontal, HardDrive, Trash2, RefreshCw, Crown } from 'lucide-react';
+import { LogOut, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { AudioQualityPreference, ProviderUser } from '../../types/onlineMusic';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { omni } from '../../services/onlineMusic/omni';
-import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { checkQualityChange } from '../../services/onlineMusic/audioQualityGate';
+import {
+    effectiveTier, maxQualityForTier, QUALITY_LABEL, useCurrentQuality,
+    type MemberTier,
+} from '../../services/onlineMusic/memberTier';
+import VipBadge from '../shared/VipBadge';
 
 interface AccountTabProps {
     user: ProviderUser | null;
@@ -20,20 +24,45 @@ interface AccountTabProps {
     onNavigateHome: () => void;
 }
 
-const AUDIO_QUALITY_OPTIONS: Array<{
-    value: AudioQualityPreference;
-    labelKey: string;
-}> = [
-    { value: 'auto', labelKey: 'account.qualityAuto' },
-    { value: 'standard', labelKey: 'account.qualityStandard' },
-    { value: 'higher', labelKey: 'account.qualityHigher' },
-    { value: 'exhigh', labelKey: 'account.qualityExhigh' },
-    { value: 'lossless', labelKey: 'account.qualityLossless' },
-    { value: 'hires', labelKey: 'account.qualityHires' },
-    { value: 'jyeffect', labelKey: 'account.qualityJyeffect' },
-    { value: 'sky', labelKey: 'account.qualitySky' },
-    { value: 'jymaster', labelKey: 'account.qualityJymaster' },
+type QualityOption = { value: AudioQualityPreference; labelKey: string };
+
+/**
+ * 音质档位按网易云会员体系分组：
+ *  基础（免费 / 登录）→ 黑胶 VIP（无损）→ 黑胶 SVIP（Hi-Res / 环绕 / 母带）。
+ * 每组标题与各档位按钮都复用音乐模块那套 VipBadge 小图标，全应用视觉一致。
+ */
+const QUALITY_GROUPS: Array<{ tier: MemberTier; title: string; options: QualityOption[] }> = [
+    {
+        tier: 'none',
+        title: '基础音质',
+        options: [
+            { value: 'auto', labelKey: 'account.qualityAuto' },
+            { value: 'standard', labelKey: 'account.qualityStandard' },
+            { value: 'higher', labelKey: 'account.qualityHigher' },
+            { value: 'exhigh', labelKey: 'account.qualityExhigh' },
+        ],
+    },
+    {
+        tier: 'vip',
+        title: '黑胶 VIP',
+        options: [
+            { value: 'lossless', labelKey: 'account.qualityLossless' },
+        ],
+    },
+    {
+        tier: 'svip',
+        title: '黑胶 SVIP',
+        options: [
+            { value: 'hires', labelKey: 'account.qualityHires' },
+            { value: 'jyeffect', labelKey: 'account.qualityJyeffect' },
+            { value: 'sky', labelKey: 'account.qualitySky' },
+            { value: 'jymaster', labelKey: 'account.qualityJymaster' },
+        ],
+    },
 ];
+
+const VIP_ONLY: AudioQualityPreference[] = ['lossless', 'hires', 'jyeffect', 'sky', 'jymaster'];
+const SVIP_ONLY: AudioQualityPreference[] = ['hires', 'jyeffect', 'sky', 'jymaster'];
 
 const AccountTab: React.FC<AccountTabProps> = ({
     user,
@@ -52,23 +81,33 @@ const AccountTab: React.FC<AccountTabProps> = ({
     const clearProviderAccount = useOnlineProviderAccountStore(state => state.clearAccount);
     const activeUser = providerAccount?.user || (activeProviderId === 'netease' ? user : null);
 
-    // 音质按网易云官方真实权限：默认「自动」= 账号能播放的最高音质
-    // （会员从超清母带起步、非会员从极高起步），用户可手动切任意档。
+    // 会员等级：账号字段 + 网易云取链接口实际给到的最高档位（取高者）。
+    const memberTier = effectiveTier(activeUser);
+    // 「当前音质」= 最近一次官方取链返回的真实档位；无播放记录时回退到当前设置档。
+    const currentQuality = useCurrentQuality();
     const [qualityHint, setQualityHint] = useState('');
-    const isVip = Number((activeUser as any)?.vipType ?? 0) > 0;
-    // 实时同步网易云当前账号能使用的最高音质：会员档只有会员账号可用；
-    // 用户手动点选的档位不会被自动改写。
-    const VIP_ONLY: AudioQualityPreference[] = ['lossless', 'hires', 'jyeffect', 'sky', 'jymaster'];
+
+    // 手动选了超出账号等级的档位时，UI 高亮压到该等级的最高可用档，
+    // 与取链时的 resolveEffectiveQuality 保持一致。
     const effectiveQuality: AudioQualityPreference =
         audioQuality === 'auto' ? 'auto'
-            : !isVip && VIP_ONLY.includes(audioQuality) ? 'exhigh' : audioQuality;
-    const maxAvailableLabel = isVip ? '超清母带（会员）' : '极高（当前账号可用最高档）';
+            : memberTier === 'none' && VIP_ONLY.includes(audioQuality) ? 'exhigh'
+                : memberTier === 'vip' && SVIP_ONLY.includes(audioQuality) ? 'lossless'
+                    : audioQuality;
+
+    const maxQuality = maxQualityForTier(memberTier);
+    const currentLabel = QUALITY_LABEL[currentQuality ?? (effectiveQuality === 'auto' ? maxQuality : effectiveQuality)]
+        ?? QUALITY_LABEL[effectiveQuality] ?? t('account.qualityAuto');
+    const maxLabel = QUALITY_LABEL[maxQuality] ?? QUALITY_LABEL.exhigh;
+
     const handleQualitySelect = (value: AudioQualityPreference) => {
-        const gate = checkQualityChange(value, isVip);
+        const gate = checkQualityChange(value, memberTier);
         if (!gate.allowed) {
             setQualityHint(gate.reason === 'login'
                 ? '请先登录网易云账号后再使用该音质'
-                : '该音质为网易云会员专享，当前账号不是会员');
+                : gate.reason === 'svip'
+                    ? '该音质为黑胶 SVIP 专享，当前账号不是超级会员'
+                    : '该音质为黑胶 VIP 专享，当前账号不是会员');
             return;
         }
         setQualityHint('');
@@ -102,10 +141,15 @@ const AccountTab: React.FC<AccountTabProps> = ({
                             />
                         </div>
                         <div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                                 <h3 className="font-bold text-sm">{activeUser.nickname}</h3>
-                                {Boolean(activeUser.vipType && activeUser.vipType !== 0) && (
-                                    <Crown size={14} className="text-white fill-white" />
+                                {/* 昵称后的会员标识：与音乐模块同一套小图标，按等级显示 VIP / SVIP */}
+                                {memberTier !== 'none' && (
+                                    <VipBadge
+                                        tier={memberTier === 'svip' ? 'svip' : 'vip'}
+                                        className="!mb-0 !mr-0"
+                                        title={memberTier === 'svip' ? '黑胶 SVIP 超级会员' : '黑胶 VIP 会员'}
+                                    />
                                 )}
                             </div>
                             <span className="block text-[10px] opacity-50">{omni.getProviderLabel(activeProviderId)}</span>
@@ -132,7 +176,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
                 </div>
             )}
 
-            {/* Provider-independent audio quality preference; each online provider maps these semantic presets. */}
+            {/* 音质偏好：按网易云会员体系分组，档位按钮内嵌统一小图标 */}
             <div className="bg-white/5 p-3 rounded-xl">
                 <div className="flex items-center gap-2 mb-2 opacity-60">
                     <SlidersHorizontal size={12} />
@@ -140,25 +184,65 @@ const AccountTab: React.FC<AccountTabProps> = ({
                         {t('account.audioQuality')}
                     </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                    {AUDIO_QUALITY_OPTIONS.map(option => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={effectiveQuality === option.value}
-                            onClick={() => handleQualitySelect(option.value)}
-                            className={`py-1.5 text-[10px] font-medium rounded-lg transition-all ${effectiveQuality === option.value
-                                ? 'bg-white/20 shadow-sm'
-                                : 'opacity-40 hover:opacity-100 hover:bg-white/5'
-                                }`}
-                        >
-                            {t(option.labelKey)}
-                        </button>
+
+                {/* 当前音质 + 账号可播放的最高音质（官方实际档位 / 等级上限） */}
+                <div className="mb-2.5 rounded-lg bg-black/15 px-2.5 py-2 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] leading-4">
+                        <span className="opacity-55">当前音质</span>
+                        <span className="font-bold">{currentLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] leading-4">
+                        <span className="opacity-55">可播放最高音质</span>
+                        <span className="flex items-center font-bold">
+                            {memberTier !== 'none' && (
+                                <VipBadge
+                                    tier={memberTier === 'svip' ? 'svip' : 'vip'}
+                                    className="!mb-0 !mr-1"
+                                    title={memberTier === 'svip' ? '黑胶 SVIP 专属音质' : '黑胶 VIP 专属音质'}
+                                />
+                            )}
+                            {maxLabel}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="space-y-2.5">
+                    {QUALITY_GROUPS.map(group => (
+                        <div key={group.tier}>
+                            <div className="flex items-center gap-1 mb-1.5 opacity-70">
+                                {group.tier !== 'none' && (
+                                    <VipBadge
+                                        tier={group.tier === 'svip' ? 'svip' : 'vip'}
+                                        className="!mb-0 !mr-0.5"
+                                    />
+                                )}
+                                <span className="text-[9px] font-bold uppercase tracking-wide">{group.title}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {group.options.map(option => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        aria-pressed={effectiveQuality === option.value}
+                                        onClick={() => handleQualitySelect(option.value)}
+                                        className={`py-1.5 text-[10px] font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${effectiveQuality === option.value
+                                            ? 'bg-white/20 shadow-sm'
+                                            : 'opacity-40 hover:opacity-100 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {group.tier !== 'none' && (
+                                            <VipBadge
+                                                tier={group.tier === 'svip' ? 'svip' : 'vip'}
+                                                className="!mb-0 !mr-0"
+                                            />
+                                        )}
+                                        {t(option.labelKey)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </div>
-                <p className="mt-2 text-[10px] leading-4 opacity-60">
-                    当前可用：{maxAvailableLabel} · 实时同步网易云账号权限
-                </p>
                 <p className="mt-2 text-[10px] leading-4 opacity-40">
                     {t('account.qualityAutoHint')}
                 </p>
@@ -200,4 +284,3 @@ const AccountTab: React.FC<AccountTabProps> = ({
 };
 
 export default AccountTab;
-

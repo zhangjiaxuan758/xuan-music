@@ -12,12 +12,17 @@
 
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { EP, SERVER_URL, SIGN_SECRET } from './secretBox';
+import { ensureAttest, attestSession, invalidateAttest } from './appAttest';
 
 export const XUAN_SERVER = SERVER_URL;
 
-// 应用级签名密钥：仅用于「证明请求来自本应用」，不是敏感信息。
-// 真正的 eapi 密钥 / 管理口令只存在服务端。
+// 应用级签名密钥：仅用于握手、更新检查、管理端与公开下载等通道。
+// 音乐/配置等业务接口的签名密钥由服务端在应用身份证明通过后逐会话下发，
+// 静态密钥单独无法调用任何业务接口（防逆向脚本直连）。
 const APP_SIGN_SECRET = SIGN_SECRET;
+
+/** 强制走「会话密钥 + 应用证明令牌」的业务接口。 */
+const ATTEST_PATHS = new Set<string>([EP[43], EP[44]]);
 
 export interface XuanTab { id: string; label: string; visible: boolean; order: number }
 export interface XuanDevPick { id: number; name: string; artist: string }
@@ -88,7 +93,7 @@ async function ensureTicket(): Promise<string> {
   return '';
 }
 
-async function signHeaders(method: string, path: string, body: string, adminToken = '', bodyBytes?: Uint8Array): Promise<Record<string, string>> {
+async function signHeaders(method: string, path: string, body: string, adminToken = '', bodyBytes?: Uint8Array, forceAttest = false): Promise<Record<string, string>> {
   const ts = Math.floor(Date.now() / 1000).toString();
   const n = nonce();
   // 二进制上传（APK）时按真实字节计算摘要，与服务端校验严格一致
@@ -96,14 +101,20 @@ async function signHeaders(method: string, path: string, body: string, adminToke
     ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bodyBytes.buffer as ArrayBuffer))).map(b => b.toString(16).padStart(2, '0')).join('')
     : await sha256Hex(body);
   const t = await ensureTicket();
-  // 票据参与签名密钥派生：签名不可被第三方复用
-  const key = await sha256Hex(APP_SIGN_SECRET + '|' + t);
+  // 业务接口：先完成应用身份证明，签名改用服务端下发的会话专属密钥
+  let sess: ReturnType<typeof attestSession> = null;
+  if (forceAttest || ATTEST_PATHS.has(path)) {
+    await ensureAttest();
+    sess = attestSession();
+  }
+  const key = sess ? sess.key : await sha256Hex(APP_SIGN_SECRET + '|' + t);
   const sign = await hmacSha256Hex(key, `${ts}|${n}|${path}|${bodyHash}`);
   return {
     'X-Xuan-Ts': ts,
     'X-Xuan-Nonce': n,
     'X-Xuan-Sign': sign,
     'X-Xuan-Ticket': t,
+    ...(sess ? { 'X-Xuan-Attest': sess.token } : {}),
     ...(adminToken ? { 'X-Xuan-Admin-Token': adminToken } : {}),
   };
 }
@@ -125,27 +136,35 @@ async function rawGet(path: string): Promise<{ ok: boolean; data: any; status: n
 
 async function signedRequest<T = any>(method: 'GET' | 'POST', path: string, payload?: any, adminToken = ''): Promise<T | null> {
   const body = payload === undefined ? '' : JSON.stringify(payload);
-  const headers = await signHeaders(method, path, body, adminToken);
   const url = XUAN_SERVER + path;
-  try {
-    let status: number; let data: any;
-    if (isNative()) {
-      const r = await CapacitorHttp.request({
-        method, url, headers: { ...headers, 'Content-Type': 'application/json' },
-        data: body || undefined, responseType: 'json', connectTimeout: 20000, readTimeout: 20000,
-      });
-      status = r.status; data = r.data;
-    } else {
-      const r = await fetch(url, {
-        method, headers: { ...headers, 'Content-Type': 'application/json' },
-        body: body || undefined, credentials: 'omit', cache: 'no-store',
-      });
-      status = r.status; data = await r.json().catch(() => null);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const headers = await signHeaders(method, path, body, adminToken);
+    try {
+      let status: number; let data: any;
+      if (isNative()) {
+        const r = await CapacitorHttp.request({
+          method, url, headers: { ...headers, 'Content-Type': 'application/json' },
+          data: body || undefined, responseType: 'json', connectTimeout: 20000, readTimeout: 20000,
+        });
+        status = r.status; data = r.data;
+      } else {
+        const r = await fetch(url, {
+          method, headers: { ...headers, 'Content-Type': 'application/json' },
+          body: body || undefined, credentials: 'omit', cache: 'no-store',
+        });
+        status = r.status; data = await r.json().catch(() => null);
+      }
+      // 会话过期 / 服务端轮换纪元 / 网络段变化时重新证明一次再重试
+      if (status === 401 && attempt === 0 && ATTEST_PATHS.has(path)) {
+        invalidateAttest();
+        continue;
+      }
+      return { ok: status >= 200 && status < 300, status, ...(data || {}) } as T;
+    } catch {
+      return null;
     }
-    return { ok: status >= 200 && status < 300, status, ...(data || {}) } as T;
-  } catch {
-    return null;
   }
+  return null;
 }
 
 // ---------------------------------------------------------------- 配置与实时同步
@@ -178,15 +197,18 @@ export function onServerUpdate(fn: (u: UpdateInfo) => void) { updateListener = f
 async function openSSE() {
   sseAbort?.abort();
   sseAbort = new AbortController();
-  const t = await ensureTicket();
-  const url = `${XUAN_SERVER}${EP[52]}${encodeURIComponent(t)}`;
+  // SSE 同样必须通过应用身份证明：签名头用会话密钥签发并携带会话令牌
+  const streamPath = EP[52].split('?')[0];
+  const url = XUAN_SERVER + streamPath;
   try {
     if (isNative()) {
       // CapacitorHttp 不支持流式，native 端用低间隔增量轮询兜底（同样不重启、热应用）
       startNativePolling();
       return;
     }
-    const resp = await fetch(url, { signal: sseAbort.signal, credentials: 'omit', cache: 'no-store' });
+    const headers = await signHeaders('GET', streamPath, '', '', undefined, true);
+    const resp = await fetch(url, { headers, signal: sseAbort.signal, credentials: 'omit', cache: 'no-store' });
+    if (resp.status === 401) invalidateAttest();
     if (!resp.ok || !resp.body) throw new Error('sse failed');
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();

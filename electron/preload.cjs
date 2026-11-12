@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electron', {
     // 主进程代为下载（无 CORS/禁设头限制）：音频直写文件缓存；小资源回传 base64
     downloadAudioCache: (cacheKey, url) => ipcRenderer.invoke('download-audio-cache', cacheKey, url),
     fetchRemoteBytes: (url) => ipcRenderer.invoke('fetch-remote-bytes', url),
+    // 应用身份证明：主进程从安装目录 app.asar 读取整包哈希与随机切片
+    appIdentity: (slices) => ipcRenderer.invoke('xuan:app-identity', slices),
     getAudioCacheUsage: () => ipcRenderer.invoke('get-audio-cache-usage'),
     getAudioCacheStats: () => ipcRenderer.invoke('get-audio-cache-stats'),
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),

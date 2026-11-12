@@ -14,7 +14,14 @@ export const XUAN_REQUEST_LOGIN_EVENT = 'xuan:request-netease-login';
 /** 登录成功后通知设置层恢复用户此前选择的音质。 */
 export const XUAN_LOGIN_CONFIRMED_EVENT = 'xuan:netease-login-confirmed';
 
-export type QualityTier = 'free' | 'login' | 'vip';
+/**
+ * 音质档位归属（对齐网易云会员体系）：
+ *   free  免费：标准 / 较高
+ *   login 登录：极高 320K
+ *   vip   黑胶 VIP：无损 FLAC
+ *   svip  黑胶 SVIP：Hi-Res / 高清环绕 / 沉浸环绕 / 超清母带
+ */
+export type QualityTier = 'free' | 'login' | 'vip' | 'svip';
 
 /**
  * 官方全部档位（从高到低）。用户要求：网易云官方 API 支持的所有音质都要能切换。
@@ -30,13 +37,15 @@ export const normalizeQuality = (quality: AudioQualityPreference): AudioQualityP
     quality === 'high' ? 'exhigh' : quality;
 
 /**
- * 各档位需要的身份等级（公开口径，来自官方取链接口对账号权限的普遍行为）：
- * 标准 / 较高：免费可用；极高：需登录；无损 / Hi-Res / 沉浸环绕 / 超清母带：需会员。
+ * 各档位需要的身份等级（网易云官方权益口径）：
+ * 标准 / 较高：免费可用；极高：需登录；无损：黑胶 VIP；
+ * Hi-Res / 高清环绕 / 沉浸环绕 / 超清母带：黑胶 SVIP。
  */
 export const qualityTier = (quality: AudioQualityPreference): QualityTier => {
     const q = normalizeQuality(quality);
     if (q === 'auto') return 'free'; // 自动档按账号权限动态解析最高可用，不做门槛
-    if (q === 'lossless' || q === 'hires' || q === 'jyeffect' || q === 'sky' || q === 'jymaster') return 'vip';
+    if (q === 'hires' || q === 'jyeffect' || q === 'sky' || q === 'jymaster') return 'svip';
+    if (q === 'lossless') return 'vip';
     if (q === 'exhigh') return 'login';
     return 'free';
 };
@@ -46,26 +55,39 @@ export const isNeteaseLoggedIn = (): boolean =>
 
 export interface QualityCheckResult {
     allowed: boolean;
-    reason?: 'login' | 'vip';
+    reason?: 'login' | 'vip' | 'svip';
 }
 
+/** 会员等级：兼容旧调用（boolean）与新的三档等级。 */
+export type MemberTierArg = boolean | 'none' | 'vip' | 'svip' | undefined;
+
+const tierRank = (v: MemberTierArg): number => {
+    if (v === true || v === 'svip') return 2;
+    if (v === 'vip') return 1;
+    return 0;
+};
+
 /**
- * 切换音质前的校验。
- * - 标准：任何人都可用
+ * 切换音质前的校验（对齐网易云会员体系）。
+ * - 标准 / 较高：任何人都可用
  * - 极高：需要登录
- * - 无损 / Hi-Res：需要登录且是会员
+ * - 无损：需要登录且是黑胶 VIP（SVIP 亦可）
+ * - Hi-Res / 高清环绕 / 沉浸环绕 / 超清母带：需要登录且是黑胶 SVIP
  */
 export const checkQualityChange = (
     quality: AudioQualityPreference,
-    isVip: boolean | undefined,
+    member: MemberTierArg,
 ): QualityCheckResult => {
-    // 与网易云官方一致：无损及以上档位必须是登录会员；极高需要登录。
     // 会员状态未知一律按「非会员」处理，杜绝「没会员也能用无损」。
     const tier = qualityTier(quality);
     const loggedIn = isNeteaseLoggedIn();
-    if (tier === 'vip') {
+    const rank = tierRank(member);
+    if (tier === 'svip') {
         if (!loggedIn) return { allowed: false, reason: 'login' };
-        if (isVip !== true) return { allowed: false, reason: 'vip' };
+        if (rank < 2) return { allowed: false, reason: 'svip' };
+    } else if (tier === 'vip') {
+        if (!loggedIn) return { allowed: false, reason: 'login' };
+        if (rank < 1) return { allowed: false, reason: 'vip' };
     } else if (tier === 'login' && !loggedIn) {
         return { allowed: false, reason: 'login' };
     }
@@ -97,23 +119,22 @@ export const consumePendingLogin = (): boolean => {
 };
 
 /**
- * 实际取链时的档位：未登录 / 登录非会员 / 会员一律从用户所选档位
- * （默认最高 jymaster）起步，由 FULL_QUALITY_CHAIN 依次降级重试，
- * 官方按账号权限返回它能给的最高档，最终以官方 br/level 显示真实档位。
+ * 实际取链时的档位：一律从用户所选档位起步，由 FULL_QUALITY_CHAIN 依次
+ * 降级重试，官方按账号权限返回它能给的最高档，最终以官方 br/level 显示真实档位。
+ * 这里只在「用户选了超出账号等级的手动档」时预先压到该等级的最高可用档，
+ * 避免明知不可达还向官方反复索取；自动档直接按账号等级取最高。
  */
 export const resolveEffectiveQuality = (
     quality: AudioQualityPreference,
-    isVip: boolean,
+    member: MemberTierArg,
 ): AudioQualityPreference => {
     const q = normalizeQuality(quality);
-    // 「自动」= 账号能播放的最高档：会员从超清母带起步、非会员从极高起步，
-    // 官方取链接口按账号权限自动降级，最终以官方 br/level 显示真实档位。
-    if (q === 'auto') return isVip ? 'jymaster' : 'exhigh';
-    // 官方对非会员请求 lossless/hires/sky/jymaster 一律降级，
-    // 这里直接从源头压到极高(320k)，不再向官方索取会员档位。
-    if (!isVip && (q === 'lossless' || q === 'hires' || q === 'jyeffect' || q === 'sky' || q === 'jymaster')) {
-        return 'exhigh';
-    }
+    const rank = tierRank(member);
+    // 「自动」= 账号能播放的最高档：SVIP 超清母带 / VIP 无损 / 非会员 极高。
+    if (q === 'auto') return rank >= 2 ? 'jymaster' : rank >= 1 ? 'lossless' : 'exhigh';
+    const need = qualityTier(q);
+    if (need === 'svip' && rank < 2) return rank >= 1 ? 'lossless' : 'exhigh';
+    if (need === 'vip' && rank < 1) return 'exhigh';
     return q;
 };
 

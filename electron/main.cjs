@@ -3167,6 +3167,38 @@ ipcMain.handle('save-settings', (event, key, value) => {
   return getPublicSettings();
 });
 
+// ---------------------------------------------------------------- 应用身份证明
+// 桌面端以安装目录里的 app.asar 作为「正版包字节」：服务端发布时登记同一份文件的
+// SHA-256，握手时随机指定偏移/长度，主进程从这里读出原始字节交给服务端逐字节复核。
+ipcMain.handle('xuan:app-identity', async (_event, slices) => {
+  const asarPath = path.join(process.resourcesPath, 'app.asar');
+  if (!fs.existsSync(asarPath)) {
+    throw new Error('app.asar not found (unsigned/dev build)');
+  }
+  const apkFp = await new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256');
+    const stream = fs.createReadStream(asarPath);
+    stream.on('data', (chunk) => h.update(chunk));
+    stream.on('end', () => resolve(h.digest('hex')));
+    stream.on('error', reject);
+  });
+  const parts = [];
+  const fd = fs.openSync(asarPath, 'r');
+  try {
+    for (const spec of Array.isArray(slices) ? slices : []) {
+      const off = Number(spec.off) || 0;
+      const len = Math.min(Math.max(Number(spec.len) || 0, 1), 4096);
+      const buf = Buffer.alloc(len);
+      const read = fs.readSync(fd, buf, 0, len, off);
+      parts.push(buf.subarray(0, read).toString('base64'));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  // 桌面端没有 Android 签名证书，certFp 用整包哈希顶替（服务端按同一规则校验）
+  return { apkFp, certFp: apkFp, vc: 0, slices: parts };
+});
+
 ipcMain.handle('get-cache-directory', () => {
   return {
     path: getConfiguredCacheDirectory(),

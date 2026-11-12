@@ -21,6 +21,7 @@ import {
 import { writeProviderSessionValue } from './providerStorage';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { isNeteaseLoggedIn, normalizeQuality, resolveEffectiveQuality, qualityFromOfficialLevel, FULL_QUALITY_CHAIN } from './audioQualityGate';
+import { effectiveTier, observeOfficialQuality } from './memberTier';
 
 // src/services/onlineMusic/neteaseProvider.ts
 
@@ -280,14 +281,12 @@ export const neteaseProvider: OnlineMusicProvider = {
             // 任何登录态都从官方支持的最高档起步，依次降级重试，
             // 只要任一档位能拿到可播放地址就立即返回。官方按账号权限
             // 自动降级，天然实现「永远拿到该账号能播的最高音质」。
-            // 会员身份来自官方账号信息接口
-            // 返回的 profile.vipType；官方 profile 不带该字段时视为「未知」并放行，
-            // 由官方取链接口做最终判定，避免把真会员误判成非会员。
+            // 会员等级（none / vip / svip）来自官方账号信息接口返回的字段，
+            // 并叠加「官方取链接口实际给到过的最高音质」——以网易云返回的
+            // 真实结果为准，避免账号接口偶尔不带 SVIP 字段时误判超级会员。
             const accountUser = useOnlineProviderAccountStore.getState().accounts?.['netease']?.user;
-            const vipType = accountUser?.vipType;
-            // 真实会员判定：vipType 缺失 / 为 0 一律按非会员，不再把「未知」当会员放行。
-            const isVip = Number(vipType ?? 0) > 0;
-            const effectiveQuality = resolveEffectiveQuality(quality, isVip);
+            const memberTier = effectiveTier(accountUser);
+            const effectiveQuality = resolveEffectiveQuality(quality, memberTier);
             // 从用户所选档（默认最高 jymaster）起依次降级到 standard。
             const levels = qualityLevelsFrom(effectiveQuality);
             // 官方 eapi 对会员 / 付费 / 无版权歌曲返回的是结构化受限字段
@@ -312,11 +311,15 @@ export const neteaseProvider: OnlineMusicProvider = {
                     const rawUrl = entry?.url;
                     if (rawUrl) {
                         const trialSeconds = describeNeteaseRestriction(entry, song)?.trialSeconds;
+                        // 以官方返回的 level/br 为准，避免「选了无损、实际拿到 320k」却仍显示无损。
+                        // 同时把真实档位喂给会员等级模块：音质区据此显示「当前音质」，
+                        // 并以网易云实际给的档位反推账号是否为 VIP / SVIP。
+                        const realQuality = qualityFromOfficialLevel(entry?.level, entry?.br, effectiveQuality);
+                        observeOfficialQuality(realQuality, accountUser?.id);
                         return {
                             url: String(rawUrl).replace(/^http:/, 'https:'),
                             fetchedAt: Date.now(),
-                            // 以官方返回的 level/br 为准，避免「选了无损、实际拿到 320k」却仍显示无损
-                            quality: qualityFromOfficialLevel(entry?.level, entry?.br, effectiveQuality),
+                            quality: realQuality,
                             ...(trialSeconds ? { trialSeconds } : {}),
                         };
                     }

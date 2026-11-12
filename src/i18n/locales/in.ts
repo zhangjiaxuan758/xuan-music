@@ -391,6 +391,7 @@
     "qualityNeedLogin": "Silakan masuk ke NetEase Cloud Music terlebih dahulu",
     "qualityNeedVip": "Kualitas ini khusus anggota VIP",
     "qualityHigher": "Lebih tinggi",
+    "qualityJyeffect": "Surround HD",
     "qualitySky": "Imersif",
     "qualityJymaster": "Master",
     "qualityAutoHint": "Otomatis memutar kualitas tertinggi yang tersedia; bisa diganti kapan saja",

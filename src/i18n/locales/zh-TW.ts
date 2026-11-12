@@ -408,6 +408,7 @@
     "qualityNeedLogin": "請先登入網易雲帳號後再切換音質",
     "qualityNeedVip": "該音質為網易雲會員專享，開通會員後可使用",
     "qualityHigher": "較高",
+    "qualityJyeffect": "高清環繞",
     "qualitySky": "沉浸環繞",
     "qualityJymaster": "超清母帶",
     "qualityAutoHint": "自動播放目前帳號可用的最高音質，可隨時往下切換",

@@ -406,6 +406,7 @@
     "qualityNeedLogin": "Please sign in to NetEase Cloud Music first",
     "qualityNeedVip": "This quality is for VIP members only",
     "qualityHigher": "Higher",
+    "qualityJyeffect": "HD Surround",
     "qualitySky": "Immersive",
     "qualityJymaster": "Master",
     "qualityAutoHint": "Automatically plays the highest quality your account allows; switch down anytime",

@@ -315,6 +315,80 @@ class XuanNativePlugin : Plugin() {
         }
     }
 
+    /**
+     * 应用身份证明：读取自身已安装 APK 的整包 SHA-256、系统 PackageManager 给出的
+     * 签名证书 DER 的 SHA-256，以及服务端随机指定的字节切片。
+     * 这些事实只能在「正版包确实被系统安装并运行」时取得：重签名 / 换包 /
+     * 拿逆向出来的接口写脚本直连，都无法给出与服务端保存的正版字节一致的结果。
+     */
+    @PluginMethod
+    fun getAppIdentity(call: PluginCall) {
+        try {
+            val spec = org.json.JSONArray(call.getString("slices") ?: "[]")
+            val apk = java.io.File(context.packageCodePath)
+            val apkFp = sha256OfFile(apk)
+            val certFp = signingCertSha256()
+            val vc = try {
+                val pi = context.packageManager.getPackageInfo(context.packageName, 0)
+                if (Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt() else @Suppress("DEPRECATION") pi.versionCode
+            } catch (_: Throwable) { 0 }
+            val out = JSArray()
+            java.io.RandomAccessFile(apk, "r").use { raf ->
+                for (i in 0 until spec.length()) {
+                    val o = spec.getJSONObject(i)
+                    val off = o.getLong("off")
+                    val len = o.getInt("len").coerceIn(1, 4096)
+                    val buf = ByteArray(len)
+                    raf.seek(off)
+                    raf.readFully(buf)
+                    out.put(Base64.encodeToString(buf, Base64.NO_WRAP))
+                }
+            }
+            call.resolve(JSObject().apply {
+                put("apkFp", apkFp)
+                put("certFp", certFp)
+                put("vc", vc)
+                put("slices", out)
+            })
+        } catch (e: Exception) {
+            call.reject("identity failed: ${e.message}")
+        }
+    }
+
+    /** 整包 SHA-256（流式，避免一次性把 15MB APK 读进内存）。 */
+    private fun sha256OfFile(f: java.io.File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        java.io.FileInputStream(f).use { ins ->
+            val buf = ByteArray(1024 * 1024)
+            while (true) {
+                val n = ins.read(buf)
+                if (n <= 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }
+
+    /** 系统安装的签名证书 DER 的 SHA-256；重打包后必然与官方 keystore 不同。 */
+    private fun signingCertSha256(): String {
+        return try {
+            val pm = context.packageManager
+            val pi = if (Build.VERSION.SDK_INT >= 28) {
+                pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION") pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES)
+            }
+            val sigs = if (Build.VERSION.SDK_INT >= 28) {
+                pi.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION") pi.signatures
+            }
+            val der = sigs?.firstOrNull()?.toByteArray() ?: return ""
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            md.digest(der).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        } catch (_: Throwable) { "" }
+    }
+
     /** 设备支持的帧率档位（取整去重升序，如 [30, 60, 90, 120]） */
     @PluginMethod
     fun getSupportedFrameRates(call: PluginCall) {
